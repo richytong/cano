@@ -1,0 +1,9 @@
+{
+  "name": "cratos",
+  "version": "0.0.1",
+  "description": "🌋 hyperactive package manager",
+  "author": "Richard Tong",
+  "license": "MIT",
+  "main": "index.js",
+  "keywords": []
+}
