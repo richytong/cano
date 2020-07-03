@@ -5,5 +5,26 @@
   "author": "Richard Tong",
   "license": "MIT",
   "main": "index.js",
-  "keywords": []
+  "bin": {
+    "cratos": "cli.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "github:richytong/cratos"
+  },
+  "homepage": "https://github.com/richytong/cratos",
+  "keywords": [
+    "devops",
+    "toolchain",
+    "multi-repo",
+    "workspace tooling",
+    "test runner",
+    "environment management",
+    "version control",
+    "package management",
+    "dependency management",
+    "deployment",
+    "git",
+    "npm"
+  ]
 }
