@@ -12,6 +12,8 @@ const {
   get, pick, omit,
 } = rubico
 
+const identity = x => x
+
 const pathResolve = nodePath.resolve
 
 const isDefined = x => typeof x !== 'undefined' && x !== null
@@ -23,8 +25,14 @@ const slice = (from, to) => arr => arr.slice(
   typeof to === 'undefined' ? undefined : to === -1 ? arr.length - 1 : to,
 )
 
+const log = (...args) => x => tap(() => console.log(
+  ...args.map(arg => typeof arg === 'function' ? arg(x) : arg),
+))(x)
+
+const includes = value => arr => arr.includes(value)
+
 const USAGE = `
-usage: cratos [--version] [-v] [--help] [-h] <command> [<args>] [path]
+usage: cratos [--version] [-v] [--help] [-h] <command> [<args>]
 
 commands:
 
@@ -44,41 +52,61 @@ commands:
 //     run <script> <path|module>    run module script
 
 // () => string
-const getUsage = () => USAGE
-
-// string => boolean
-const isOpt = s => s.startsWith('-')
-
-// argv [string] => boolean
-const hasPathArg = and([
-  pipe([last, not(isOpt)]),
-  pipe([slice(3), gt(get('length'), 0)]),
-  pipe([slice(3), gt(get('length'), 0)]),
-])
-
-// () => string
 const getPathFromEnv = () => {
   if (process.env.CRATOS_PATH) return process.env.CRATOS_PATH
   if (process.env.HOME) return process.env.HOME
   throw new RangeError('no entrypoint found; $CRATOS_PATH or $HOME environment variables required')
 }
 
-/* argv [string] => {
- *   entrypoints: [string],
- *   command: string,
+const FLAGS = new Set(['-h', '--help', '-n', '--dry-run'])
+
+// string => boolean
+const isFlag = s => FLAGS.has(s)
+
+// string => string => boolean
+const startsWith = prefix => s => s.startsWith(prefix)
+
+/* argv [string] => parsedArgv {
  *   arguments: [string],
+ *   flags: [string],
  * }
  */
 const parseArgv = argv => fork({
+  /*
   entrypoints: pipe([
-    argv => hasPathArg(argv) ? last(argv) : getPathFromEnv(),
+    argv => argvHasPathArg(argv) ? last(argv) : getPathFromEnv(),
     path => path.split(':'),
     map(pathResolve),
   ]),
-  command: get(2),
-  arguments: switchCase([hasPathArg, slice(3, -1), slice(3)]),
+  */
+  arguments: pipe([
+    filter(and([
+      not(startsWith('-')),
+      not(isFlag),
+    ])),
+    slice(2), // node ./cli.js ...
+  ]),
+  flags: filter(isFlag),
 })(argv)
 
+// string => parsedArgv => boolean
+const hasFlag = flag => ({ flags }) => flags.includes(flag)
+
+// parsedArgv => boolean
+const isBaseCommand = ({ arguments }) => arguments.length === 0
+
+// parsedArgv => ()
+const switchCommand = parsedArgv => switchCase([
+  or([
+    hasFlag('--help'),
+    hasFlag('-h'),
+    isBaseCommand,
+  ]), log(USAGE),
+  log(x => `${x.arguments[0]} is not a cratos command\n${USAGE}`),
+])(parsedArgv)
+
 module.exports = {
+  getUsage: () => USAGE + '\n',
   parseArgv,
+  switchCommand,
 }

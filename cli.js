@@ -15,7 +15,6 @@ const {
 
 // argv [string] => ()
 pipe([
-  trace,
   cratos.parseArgv,
-  trace,
+  cratos.switchCommand,
 ])(process.argv)
