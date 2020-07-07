@@ -2,6 +2,7 @@ const rubico = require('rubico')
 const trace = require('rubico/x/trace')
 const execa = require('execa')
 const nodePath = require('path')
+const fs = require('fs')
 
 const {
   pipe, fork, assign,
@@ -31,6 +32,10 @@ const log = (...args) => x => tap(() => console.log(
 
 const includes = value => arr => arr.includes(value)
 
+const isEmpty = x => x.length === 0
+
+const split = delim => s => s.split(delim)
+
 const USAGE = `
 usage: cratos [--version] [-v] [--help] [-h] <command> [<args>]
 
@@ -51,13 +56,6 @@ commands:
 //     test <path|module>            run module tests defined by test script or mocha at module root
 //     run <script> <path|module>    run module script
 
-// () => string
-const getPathFromEnv = () => {
-  if (process.env.CRATOS_PATH) return process.env.CRATOS_PATH
-  if (process.env.HOME) return process.env.HOME
-  throw new RangeError('no entrypoint found; $CRATOS_PATH or $HOME environment variables required')
-}
-
 const FLAGS = new Set(['-h', '--help', '-n', '--dry-run'])
 
 // string => boolean
@@ -72,13 +70,6 @@ const startsWith = prefix => s => s.startsWith(prefix)
  * }
  */
 const parseArgv = argv => fork({
-  /*
-  entrypoints: pipe([
-    argv => argvHasPathArg(argv) ? last(argv) : getPathFromEnv(),
-    path => path.split(':'),
-    map(pathResolve),
-  ]),
-  */
   arguments: pipe([
     filter(and([
       not(startsWith('-')),
@@ -89,11 +80,80 @@ const parseArgv = argv => fork({
   flags: filter(isFlag),
 })(argv)
 
+const hasEnvVar = name => () => !!process.env[name]
+
+const flatten = x => x.length === 0 ? x : reduce((a, b) => a.concat(b), [])(x)
+
+// path string => moduleNames [string]
+const walkPathForModuleNames = path => pipe([
+  fork({
+    path: identity,
+    dirents: tryCatch(
+      path => fs.promises.readdir(path, { withFileTypes: true }),
+      () => [],
+    ),
+  }),
+  switchCase([
+    pipe([
+      get('dirents'),
+      map(get('name')),
+      and([
+        includes('.git'),
+        includes('package.json'),
+      ]),
+    ]), ({ path }) => [path],
+    ({ path, dirents }) => pipe([
+      filter(and([
+        dirent => dirent.name !== '.git',
+        dirent => dirent.isDirectory(),
+      ])),
+      map(pipe([
+        get('name'),
+        dirName => pathResolve(path, dirName),
+        walkPathForModuleNames,
+      ])),
+      flatten,
+    ])(dirents), // TODO: replace this with flatMap and transform
+  ]),
+])(path)
+
+/* path string => module {
+ *   name: string,
+ *   version: string,
+ * }
+ */
+// const resolveModuleFromPath = path
+
+// parsedArgv => modulePaths [string]
+const findModules = pipe([
+  switchCase([
+    gt(1, get('arguments.length')), pipe([get('arguments'), last]),
+    hasEnvVar('CRATOS_PATH'), () => process.env.CRATOS_PATH,
+    hasEnvVar('HOME'), () => process.env.HOME,
+    () => {
+      throw new RangeError('no entrypoint found; CRATOS_PATH or HOME environment variables required')
+    },
+  ]),
+  split(':'),
+  map(pipe([
+    pathResolve,
+    walkPathForModuleNames,
+  ])),
+])
+
+// parsedArgv => ()
+const commandList = parsedArgv => pipe([
+  getEntrypoints,
+])(parsedArgv)
+
 // string => parsedArgv => boolean
 const hasFlag = flag => ({ flags }) => flags.includes(flag)
 
 // parsedArgv => boolean
 const isBaseCommand = ({ arguments }) => arguments.length === 0
+
+// string => parsedArgv => boolean
+const isCommand = cmd => ({ arguments }) => arguments[0] === cmd
 
 // parsedArgv => ()
 const switchCommand = parsedArgv => switchCase([
@@ -102,11 +162,25 @@ const switchCommand = parsedArgv => switchCase([
     hasFlag('-h'),
     isBaseCommand,
   ]), log(USAGE),
+  or([
+    isCommand('ls'),
+    isCommand('list'),
+  ]), commandList,
   log(x => `${x.arguments[0]} is not a cratos command\n${USAGE}`),
 ])(parsedArgv)
 
-module.exports = {
-  getUsage: () => USAGE + '\n',
-  parseArgv,
-  switchCommand,
+// argv [string] => ()
+function cratos(argv) {
+  return pipe([
+    parseArgv,
+    switchCommand,
+  ])(argv)
 }
+
+cratos.getUsage = () => USAGE + '\n'
+cratos.parseArgv = parseArgv
+cratos.walkPathForModuleNames = walkPathForModuleNames
+cratos.commandList = commandList
+cratos.switchCommand = switchCommand
+
+module.exports = cratos

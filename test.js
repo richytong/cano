@@ -1,10 +1,14 @@
 const rubico = require('rubico')
 const assert = require('assert')
-const cratos = require('.')
 const nodePath = require('path')
 const util = require('util')
+const fs = require('fs')
+const rimrafCb = require('rimraf')
+const cratos = require('.')
 
-const { inspect } = util
+const { inspect, promisify } = util
+
+const rimraf = promisify(rimrafCb)
 
 const {
   pipe, fork, assign,
@@ -81,6 +85,13 @@ const captureStdout = f => x => {
   return output
 }
 
+const createProjectFixture = path => fork.series([
+  path => fs.promises.mkdir(pathResolve(path, '.git'), { recursive: true }),
+  path => fs.promises.writeFile(pathResolve(path, 'package.json'), '{}'),
+])(path)
+
+const createEmptyProjectFixture = path => fs.promises.mkdir(path, { recursive: true })
+
 describe('cratos', () => {
   describe('parseArgv', () => {
     it('cratos', async () => {
@@ -88,53 +99,73 @@ describe('cratos', () => {
         cratos.parseArgv(['node', 'cratos']),
       )
     })
-
     it('cratos -h', async () => {
       assertEqual({ arguments: [], flags: ['-h'] },
         cratos.parseArgv(['node', 'cratos', '-h']),
       )
     })
-
     it('cratos --help', async () => {
       assertEqual({ arguments: [], flags: ['--help'] },
         cratos.parseArgv(['node', 'cratos', '--help']),
       )
     })
-
     it('cratos --unrecognied', async () => {
       assertEqual({ arguments: [], flags: [] },
         cratos.parseArgv(['node', 'cratos', '--unrecognied']),
       )
     })
-
     it('cratos some-command', async () => {
       assertEqual({ arguments: ['some-command'], flags: [] },
         cratos.parseArgv(['node', 'cratos', 'some-command']),
       )
     })
-
     it('cratos some-command -n', async () => {
       assertEqual({ arguments: ['some-command'], flags: ['-n'] },
         cratos.parseArgv(['node', 'cratos', 'some-command', '-n']),
       )
     })
-
     it('cratos some-command --dry-run', async () => {
       assertEqual({ arguments: ['some-command'], flags: ['--dry-run'] },
         cratos.parseArgv(['node', 'cratos', 'some-command', '--dry-run']),
       )
     })
-
     it('cratos dist patch', async () => {
       assertEqual({ arguments: ['dist', 'patch'], flags: [] },
         cratos.parseArgv(['node', 'cratos', 'dist', 'patch']),
       )
     })
-
     it('cratos dist patch -n', async () => {
       assertEqual({ arguments: ['dist', 'patch'], flags: ['-n'] },
         cratos.parseArgv(['node', 'cratos', 'dist', 'patch', '-n']),
       )
+    })
+  })
+
+  describe('walkPathForModuleNames', () => {
+    it('walk tmp; bunch of cases', async () => {
+      await map(pipe([
+        glob => pathResolve(__dirname, glob),
+        createProjectFixture,
+      ]))([
+        'tmp/project',
+        'tmp/project/sub/project',
+        'tmp/a/b/c/d/project',
+      ])
+      await map(pipe([
+        s => pathResolve(__dirname, s),
+        createEmptyProjectFixture,
+      ]))([
+        'tmp/empty',
+        'tmp/a/b/c/d/empty',
+      ])
+      assertEqual(
+        await cratos.walkPathForModuleNames(pathResolve(__dirname, 'tmp')),
+        [
+          pathResolve(__dirname, 'tmp/a/b/c/d/project'),
+          pathResolve(__dirname, 'tmp/project'),
+        ],
+      )
+      await rimraf(pathResolve(__dirname, 'tmp'))
     })
   })
 
@@ -148,7 +179,6 @@ describe('cratos', () => {
         }),
       )
     })
-
     it('cratos -h', async () => {
       assertEqual(
         cratos.getUsage(),
@@ -158,7 +188,6 @@ describe('cratos', () => {
         }),
       )
     })
-
     it('cratos --help', async () => {
       assertEqual(
         cratos.getUsage(),
@@ -168,7 +197,6 @@ describe('cratos', () => {
         }),
       )
     })
-
     it('cratos unknown', async () => {
       assertEqual(
         `unknown is not a cratos command\n${cratos.getUsage()}`,
