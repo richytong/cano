@@ -125,8 +125,10 @@ const walkPathForModuleNames = pathArg => pipe([
 ])(pathArg)
 
 // path string => packageJSON object
-const readPackageJSON = pathArg => pipe([
+const getPackageJSON = pathArg => pipe([
   path => pathResolve(path, 'package.json'),
+  fs.promises.readFile,
+  JSON.parse,
 ])(pathArg)
 
 // path string => gitStatus object
@@ -139,8 +141,8 @@ const getGitStatus = pathArg => pipe([
       '--porcelain',
       '--branch',
     ]),
-    (_, path) => {
-      throw new Error(`${path}; invalid path`)
+    err => {
+      throw new Error(err.stderr)
     },
   ),
   get('stdout'),
@@ -158,7 +160,7 @@ const getGitStatus = pathArg => pipe([
  */
 const getModuleInfo = pathArg => pipe([
   fork({
-    packageJSON: readPackageJSON,
+    packageJSON: getPackageJSON,
     gitStatus: getGitStatus,
   }),
 ])(pathArg)
@@ -219,7 +221,7 @@ function cratos(argv) {
 cratos.getUsage = () => USAGE + '\n'
 cratos.parseArgv = parseArgv
 cratos.walkPathForModuleNames = walkPathForModuleNames
-cratos.readPackageJSON = readPackageJSON
+cratos.getPackageJSON = getPackageJSON
 cratos.getGitStatus = getGitStatus
 cratos.commandList = commandList
 cratos.switchCommand = switchCommand

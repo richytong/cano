@@ -92,10 +92,18 @@ const git = (args, path) => execa('git', [
   ...args,
 ])
 
+const packageJSONFixture = {
+  name: 'ayo',
+  version: '0.0.1',
+}
+
 const createProjectFixture = path => fork.series([
   path => fs.promises.mkdir(pathResolve(path), { recursive: true }),
   path => git(['init'], pathResolve(path)),
-  path => fs.promises.writeFile(pathResolve(path, 'package.json'), '{}'),
+  path => fs.promises.writeFile(
+    pathResolve(path, 'package.json'),
+    JSON.stringify(packageJSONFixture, null, 2),
+  ),
 ])(path)
 
 const createEmptyProjectFixture = path => fs.promises.mkdir(path, { recursive: true })
@@ -226,6 +234,31 @@ describe('cratos', () => {
     })
   })
 
+  describe('getPackageJSON', () => {
+    afterEach(async () => {
+      await rimraf(pathResolve(__dirname, 'tmp'))
+    })
+    it('reads and parses package.json for path', async () => {
+      await pathToProject('tmp/project')
+      const y = cratos.getPackageJSON('tmp/project')
+      assertOk(y instanceof Promise)
+      assertEqual(await y, packageJSONFixture)
+    })
+    it('throws Error on invalid path', async () => {
+      await pathToEmpty('tmp/empty')
+      assert.rejects(
+        () => cratos.getPackageJSON('tmp/empty'),
+        new Error(`ENOENT: no such file or directory, open '${pathResolve('tmp/empty', 'package.json')}'`),
+      )
+    })
+    it('throws Error on empty path', async () => {
+      assert.rejects(
+        () => cratos.getPackageJSON('tmp/empty'),
+        new Error(`ENOENT: no such file or directory, open '${pathResolve('tmp/empty', 'package.json')}'`),
+      )
+    })
+  })
+
   describe('getGitStatus', () => {
     afterEach(async () => {
       await rimraf(pathResolve(__dirname, 'tmp'))
@@ -244,13 +277,13 @@ describe('cratos', () => {
       await pathToEmpty('tmp/empty')
       assert.rejects(
         () => cratos.getGitStatus('tmp/empty'),
-        new Error('tmp/empty; invalid path'),
+        new Error(`fatal: not a git repository: '${pathResolve('tmp/empty/.git')}'`),
       )
     })
     it('throws Error on not found path', async () => {
       assert.rejects(
         () => cratos.getGitStatus('tmp/notfound'),
-        new Error('tmp/notfound; invalid path'),
+        new Error(`fatal: not a git repository: '${pathResolve('tmp/notfound/.git')}'`),
       )
     })
   })
