@@ -139,9 +139,16 @@ const getGitStatus = pathArg => pipe([
       '--porcelain',
       '--branch',
     ]),
-    () => ({ stdout: [] }),
+    (_, path) => {
+      throw new Error(`${path}; invalid path`)
+    },
   ),
   get('stdout'),
+  split('\n'),
+  fork({
+    branch: get(0),
+    files: slice(1),
+  }),
 ])(pathArg)
 
 /* path string => module {

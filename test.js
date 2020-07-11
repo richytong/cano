@@ -110,6 +110,8 @@ const pathToEmpty = pipe([
   createEmptyProjectFixture,
 ])
 
+const createFileFromString = (path, s) => fs.promises.writeFile(pathResolve(path), s)
+
 describe('cratos', () => {
   describe('parseArgv', () => {
     it('cratos', async () => {
@@ -225,7 +227,32 @@ describe('cratos', () => {
   })
 
   describe('getGitStatus', () => {
-    it('gets output of git status --short --porcelain for path')
+    afterEach(async () => {
+      await rimraf(pathResolve(__dirname, 'tmp'))
+    })
+    it('gets output of git status --short --porcelain for path', async () => {
+      await pathToProject('tmp/project')
+      await createFileFromString('tmp/project/hey', 'hey')
+      const y = cratos.getGitStatus('tmp/project')
+      assertOk(y instanceof Promise)
+      assertEqual(await y, {
+        branch: '## No commits yet on master',
+        files: ['?? hey', '?? package.json'],
+      })
+    })
+    it('throws Error on invalid path', async () => {
+      await pathToEmpty('tmp/empty')
+      assert.rejects(
+        () => cratos.getGitStatus('tmp/empty'),
+        new Error('tmp/empty; invalid path'),
+      )
+    })
+    it('throws Error on not found path', async () => {
+      assert.rejects(
+        () => cratos.getGitStatus('tmp/notfound'),
+        new Error('tmp/notfound; invalid path'),
+      )
+    })
   })
 
   describe('switchCommand', () => {
