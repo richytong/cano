@@ -184,6 +184,19 @@ describe('cratos', () => {
       )
       await rimraf(pathResolve(__dirname, 'tmp'))
     })
+    it('walk tmp; ignores .git and node_modules', async () => {
+      await map(pathToProject)([
+        'tmp/.git/',
+        'tmp/a/b/.git/',
+        'tmp/node_modules/',
+        'tmp/a/b/c/node_modules/',
+      ])
+      assertEqual(
+        await cratos.walkPathForModuleNames(pathResolve(__dirname, 'tmp')),
+        [],
+      )
+      await rimraf(pathResolve(__dirname, 'tmp'))
+    })
     it('walk tmp; bunch of cases', async () => {
       await map(pathToProject)([
         'tmp/project',

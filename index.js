@@ -94,6 +94,11 @@ const isCratosProject = ({ dirents }) => pipe([
   ]),
 ])(dirents)
 
+const IGNORE_DIRS = new Set(['.git', 'node_modules'])
+
+// NodeDirent => boolean
+const isIgnoreDir = dirent => IGNORE_DIRS.has(dirent.name)
+
 // path string => moduleNames [string]
 const walkPathForModuleNames = path => pipe([
   fork({
@@ -107,7 +112,7 @@ const walkPathForModuleNames = path => pipe([
     isCratosProject, ({ path }) => [path],
     ({ path, dirents }) => transform(pipe([
       filter(and([
-        dirent => dirent.name !== '.git',
+        not(isIgnoreDir),
         dirent => dirent.isDirectory(),
       ])),
       flatMap(pipe([
