@@ -100,6 +100,16 @@ const createProjectFixture = path => fork.series([
 
 const createEmptyProjectFixture = path => fs.promises.mkdir(path, { recursive: true })
 
+const pathToProject = pipe([
+  glob => pathResolve(__dirname, glob),
+  createProjectFixture,
+])
+
+const pathToEmpty = pipe([
+  glob => pathResolve(__dirname, glob),
+  createEmptyProjectFixture,
+])
+
 describe('cratos', () => {
   describe('parseArgv', () => {
     it('cratos', async () => {
@@ -149,21 +159,10 @@ describe('cratos', () => {
     })
   })
 
-  const pathToProject = pipe([
-    glob => pathResolve(__dirname, glob),
-    createProjectFixture,
-  ])
-
-  const pathToEmpty = pipe([
-    glob => pathResolve(__dirname, glob),
-    createEmptyProjectFixture,
-  ])
-
   describe('walkPathForModuleNames', () => {
     afterEach(async () => {
       await rimraf(pathResolve(__dirname, 'tmp'))
     })
-
     it('walk tmp; one valid project', async () => {
       await pathToProject('tmp/project')
       assertEqual(
