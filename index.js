@@ -7,7 +7,7 @@ const fs = require('fs')
 const {
   pipe, fork, assign,
   tap, tryCatch, switchCase,
-  map, filter, reduce, transform,
+  map, filter, reduce, transform, flatMap,
   any, all, and, or, not,
   eq, gt, lt, gte, lte,
   get, pick, omit,
@@ -82,7 +82,17 @@ const parseArgv = argv => fork({
 
 const hasEnvVar = name => () => !!process.env[name]
 
-const flatten = x => x.length === 0 ? x : reduce((a, b) => a.concat(b), [])(x)
+// Directory {
+//   path: string,
+//   dirents: [NodeDirent],
+// } => boolean
+const isCratosProject = ({ dirents }) => pipe([
+  map(get('name')),
+  and([
+    includes('.git'),
+    includes('package.json'),
+  ]),
+])(dirents)
 
 // path string => moduleNames [string]
 const walkPathForModuleNames = path => pipe([
@@ -94,26 +104,18 @@ const walkPathForModuleNames = path => pipe([
     ),
   }),
   switchCase([
-    pipe([
-      get('dirents'),
-      map(get('name')),
-      and([
-        includes('.git'),
-        includes('package.json'),
-      ]),
-    ]), ({ path }) => [path],
-    ({ path, dirents }) => pipe([
+    isCratosProject, ({ path }) => [path],
+    ({ path, dirents }) => transform(pipe([
       filter(and([
         dirent => dirent.name !== '.git',
         dirent => dirent.isDirectory(),
       ])),
-      map(pipe([
+      flatMap(pipe([
         get('name'),
         dirName => pathResolve(path, dirName),
         walkPathForModuleNames,
       ])),
-      flatten,
-    ])(dirents), // TODO: replace this with flatMap and transform
+    ]), () => [])(dirents),
   ]),
 ])(path)
 

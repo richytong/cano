@@ -141,20 +141,56 @@ describe('cratos', () => {
     })
   })
 
+  const pathToProject = pipe([
+    glob => pathResolve(__dirname, glob),
+    createProjectFixture,
+  ])
+
+  const pathToEmpty = pipe([
+    glob => pathResolve(__dirname, glob),
+    createEmptyProjectFixture,
+  ])
+
   describe('walkPathForModuleNames', () => {
+    it('walk tmp; one valid project', async () => {
+      await pathToProject('tmp/project')
+      assertEqual(
+        await cratos.walkPathForModuleNames(pathResolve(__dirname, 'tmp')),
+        [pathResolve(__dirname, 'tmp/project')],
+      )
+      await rimraf(pathResolve(__dirname, 'tmp'))
+    })
+    it('walk tmp; multiple valid projects', async () => {
+      await map(pathToProject)([
+        'tmp/project',
+        'tmp/a/project',
+        'tmp/b/c/project',
+      ])
+      assertEqual(
+        await cratos.walkPathForModuleNames(pathResolve(__dirname, 'tmp')),
+        [
+          pathResolve(__dirname, 'tmp/a/project'),
+          pathResolve(__dirname, 'tmp/b/c/project'),
+          pathResolve(__dirname, 'tmp/project'),
+        ],
+      )
+      await rimraf(pathResolve(__dirname, 'tmp'))
+    })
+    it('walk tmp; empty', async () => {
+      await pathToEmpty('tmp/')
+      assertEqual(
+        await cratos.walkPathForModuleNames(pathResolve(__dirname, 'tmp')),
+        [],
+      )
+      await rimraf(pathResolve(__dirname, 'tmp'))
+    })
     it('walk tmp; bunch of cases', async () => {
-      await map(pipe([
-        glob => pathResolve(__dirname, glob),
-        createProjectFixture,
-      ]))([
+      await map(pathToProject)([
         'tmp/project',
         'tmp/project/sub/project',
         'tmp/a/b/c/d/project',
       ])
-      await map(pipe([
-        s => pathResolve(__dirname, s),
-        createEmptyProjectFixture,
-      ]))([
+      await map(pathToEmpty)([
         'tmp/empty',
         'tmp/a/b/c/d/empty',
       ])
