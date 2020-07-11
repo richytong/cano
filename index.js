@@ -86,7 +86,7 @@ const hasEnvVar = name => () => !!process.env[name]
 //   path: string,
 //   dirents: [NodeDirent],
 // } => boolean
-const isCratosProject = ({ dirents }) => pipe([
+const isCratosModule = ({ dirents }) => pipe([
   map(get('name')),
   and([
     includes('.git'),
@@ -109,7 +109,7 @@ const walkPathForModuleNames = pathArg => pipe([
     ),
   }),
   switchCase([
-    isCratosProject, ({ path }) => [path],
+    isCratosModule, ({ path }) => [path],
     ({ path, dirents }) => transform(pipe([
       filter(and([
         not(isIgnoreDir),
@@ -124,12 +124,37 @@ const walkPathForModuleNames = pathArg => pipe([
   ]),
 ])(pathArg)
 
+// path string => packageJSON object
+const readPackageJSON = pathArg => pipe([
+  path => pathResolve(path, 'package.json'),
+])(pathArg)
+
+// path string => gitStatus object
+const getGitStatus = pathArg => pipe([
+  tryCatch(
+    path => execa('git', [
+      `--git-dir=${pathResolve(path, '.git')}`,
+      `--work-tree=${path}`,
+      'status',
+      '--porcelain',
+      '--branch',
+    ]),
+    () => ({ stdout: [] }),
+  ),
+  get('stdout'),
+])(pathArg)
+
 /* path string => module {
  *   name: string,
  *   version: string,
  * }
  */
-// const resolveModuleFromPath = path
+const getModuleInfo = pathArg => pipe([
+  fork({
+    packageJSON: readPackageJSON,
+    gitStatus: getGitStatus,
+  }),
+])(pathArg)
 
 // parsedArgv => modulePaths [string]
 const findModules = pipe([
@@ -187,6 +212,8 @@ function cratos(argv) {
 cratos.getUsage = () => USAGE + '\n'
 cratos.parseArgv = parseArgv
 cratos.walkPathForModuleNames = walkPathForModuleNames
+cratos.readPackageJSON = readPackageJSON
+cratos.getGitStatus = getGitStatus
 cratos.commandList = commandList
 cratos.switchCommand = switchCommand
 

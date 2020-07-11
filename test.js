@@ -1,4 +1,5 @@
 const rubico = require('rubico')
+const execa = require('execa')
 const assert = require('assert')
 const nodePath = require('path')
 const util = require('util')
@@ -85,8 +86,15 @@ const captureStdout = f => x => {
   return output
 }
 
+const git = (args, path) => execa('git', [
+  `--git-dir=${pathResolve(path, '.git')}`,
+  `--work-tree=${path}`,
+  ...args,
+])
+
 const createProjectFixture = path => fork.series([
-  path => fs.promises.mkdir(pathResolve(path, '.git'), { recursive: true }),
+  path => fs.promises.mkdir(pathResolve(path), { recursive: true }),
+  path => git(['init'], pathResolve(path)),
   path => fs.promises.writeFile(pathResolve(path, 'package.json'), '{}'),
 ])(path)
 
@@ -152,13 +160,16 @@ describe('cratos', () => {
   ])
 
   describe('walkPathForModuleNames', () => {
+    afterEach(async () => {
+      await rimraf(pathResolve(__dirname, 'tmp'))
+    })
+
     it('walk tmp; one valid project', async () => {
       await pathToProject('tmp/project')
       assertEqual(
         await cratos.walkPathForModuleNames(pathResolve(__dirname, 'tmp')),
         [pathResolve(__dirname, 'tmp/project')],
       )
-      await rimraf(pathResolve(__dirname, 'tmp'))
     })
     it('walk tmp; multiple valid projects', async () => {
       await map(pathToProject)([
@@ -174,7 +185,6 @@ describe('cratos', () => {
           pathResolve(__dirname, 'tmp/project'),
         ],
       )
-      await rimraf(pathResolve(__dirname, 'tmp'))
     })
     it('walk tmp; empty', async () => {
       await pathToEmpty('tmp/')
@@ -182,7 +192,6 @@ describe('cratos', () => {
         await cratos.walkPathForModuleNames(pathResolve(__dirname, 'tmp')),
         [],
       )
-      await rimraf(pathResolve(__dirname, 'tmp'))
     })
     it('walk tmp; ignores .git and node_modules', async () => {
       await map(pathToProject)([
@@ -195,7 +204,6 @@ describe('cratos', () => {
         await cratos.walkPathForModuleNames(pathResolve(__dirname, 'tmp')),
         [],
       )
-      await rimraf(pathResolve(__dirname, 'tmp'))
     })
     it('walk tmp; bunch of cases', async () => {
       await map(pathToProject)([
@@ -214,8 +222,11 @@ describe('cratos', () => {
           pathResolve(__dirname, 'tmp/project'),
         ],
       )
-      await rimraf(pathResolve(__dirname, 'tmp'))
     })
+  })
+
+  describe('getGitStatus', () => {
+    it('gets output of git status --short --porcelain for path')
   })
 
   describe('switchCommand', () => {
