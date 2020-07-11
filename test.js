@@ -288,6 +288,31 @@ describe('cratos', () => {
     })
   })
 
+  describe('getModuleInfo', () => {
+    afterEach(async () => {
+      await rimraf(pathResolve(__dirname, 'tmp'))
+    })
+    const infoFields = new Set([
+      'packageName', 'packageVersion',
+      'gitStatusBranch', 'gitStatusFiles',
+    ])
+    it('gets info about a module', async () => {
+      await pathToProject('tmp/project')
+      const y = cratos.getModuleInfo('tmp/project')
+      assertOk(y instanceof Promise)
+      assertEqual(Object.keys(await y).length, infoFields.size)
+      for (const field in await y) {
+        assertOk(infoFields.has(field))
+      }
+    })
+    it('throws some Error if not found', async () => {
+      assert.rejects(
+        () => cratos.getModuleInfo('tmp/notfound'),
+        { name: 'Error' },
+      )
+    })
+  })
+
   describe('switchCommand', () => {
     it('cratos', async () => {
       assertEqual(

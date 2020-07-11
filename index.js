@@ -153,15 +153,23 @@ const getGitStatus = pathArg => pipe([
   }),
 ])(pathArg)
 
-/* path string => module {
- *   name: string,
- *   version: string,
+/* path string => cratosModule {
+ *   packageName: string,
+ *   packageVersion: string,
+ *   gitStatusBranch: [string],
+ *   gitStatusFiles: [string],
  * }
  */
 const getModuleInfo = pathArg => pipe([
   fork({
     packageJSON: getPackageJSON,
     gitStatus: getGitStatus,
+  }),
+  fork({
+    packageName: get('packageJSON.name'),
+    packageVersion: get('packageJSON.version'),
+    gitStatusBranch: get('gitStatus.branch'),
+    gitStatusFiles: get('gitStatus.files'),
   }),
 ])(pathArg)
 
@@ -223,6 +231,7 @@ cratos.parseArgv = parseArgv
 cratos.walkPathForModuleNames = walkPathForModuleNames
 cratos.getPackageJSON = getPackageJSON
 cratos.getGitStatus = getGitStatus
+cratos.getModuleInfo = getModuleInfo
 cratos.commandList = commandList
 cratos.switchCommand = switchCommand
 
