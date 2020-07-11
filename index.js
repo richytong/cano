@@ -100,7 +100,7 @@ const IGNORE_DIRS = new Set(['.git', 'node_modules'])
 const isIgnoreDir = dirent => IGNORE_DIRS.has(dirent.name)
 
 // path string => moduleNames [string]
-const walkPathForModuleNames = path => pipe([
+const walkPathForModuleNames = pathArg => pipe([
   fork({
     path: identity,
     dirents: tryCatch(
@@ -122,7 +122,7 @@ const walkPathForModuleNames = path => pipe([
       ])),
     ]), () => [])(dirents),
   ]),
-])(path)
+])(pathArg)
 
 /* path string => module {
  *   name: string,
