@@ -209,11 +209,30 @@ const logger = {
   warn: logWithLevel('[WARNING]'),
 }
 
+// parsedArgv { flags: [string] } => parsedFlags object
+const parseFlags = ({ flags }) => transform(map(pipe([
+  flag => flag.split('='),
+  fork([
+    pipe([get(0), s => s.replace(/-/g, '')]),
+    get(1, true),
+  ]),
+])), () => new Map())(flags)
+
+const parsedFlagsHas = key => ({ parsedFlags }) => parsedFlags.has(key)
+
+const parsedFlagsGet = key => ({ parsedFlags }) => parsedFlags.get(key)
+
 // parsedArgv {
 //   arguments: [string],
+//   flags: [string],
 // } => modulePaths [string]
 const findModules = parsedArgv => pipe([
+  assign({ parsedFlags: parseFlags }),
   switchCase([
+    parsedFlagsHas('path'), pipe([
+      parsedFlagsGet('path'),
+      pathResolve,
+    ]),
     hasEnvVar('CRATOS_PATH'), getEnvVar('CRATOS_PATH'),
     hasEnvVar('HOME'), pipe([
       logger.warn('CRATOS_PATH not set; finding modules from HOME'),
@@ -231,8 +250,8 @@ const findModules = parsedArgv => pipe([
   ])),
 ])(parsedArgv)
 
-// () => ()
-const commandList = () => pipe([
+// parsedArgv => ()
+const commandList = parsedArgv => pipe([
   findModules,
   map(pipe([
     fork([
@@ -242,10 +261,10 @@ const commandList = () => pipe([
     fields => fields.join('-'),
     trace,
   ])),
-])()
+])(parsedArgv)
 
-// () => ()
-const commandStatus = () => pipe([
+// parsedArgv => ()
+const commandStatus = parsedArgv => pipe([
   findModules,
   map(pipe([
     ({ packageName, gitStatusFiles }) => map(pipe([
@@ -253,10 +272,10 @@ const commandStatus = () => pipe([
       trace,
     ]))(gitStatusFiles),
   ])),
-])()
+])(parsedArgv)
 
-// () => ()
-const commandBranch = () => pipe([
+// parsedArgv => ()
+const commandBranch = parsedArgv => pipe([
   findModules,
   map(pipe([
     fork([
@@ -266,7 +285,7 @@ const commandBranch = () => pipe([
     fields => fields.join(' '),
     trace,
   ])),
-])()
+])(parsedArgv)
 
 // string => parsedArgv => boolean
 const hasFlag = flag => ({ flags }) => flags.includes(flag)

@@ -76,7 +76,7 @@ const assertEqual = (
   ].join('; '))
 }
 
-const assertOk = assert.ok
+const aok = assert.ok
 
 const writeStdout = process.stdout.write.bind(process.stdout)
 
@@ -88,7 +88,10 @@ const captureStdout = f => x => {
     if (typeof chunk === 'string') output += chunk
     // writeStdout(chunk, encoding, cb)
   }
-  const y = f(x)
+  const y = tryCatch(f, e => {
+    console.error(e)
+    process.exit(1)
+  })(x)
   return isPromise(y) ? y.then(res => (
     process.stdout.write = writeStdout, // release stdout
     [y, output]
@@ -129,63 +132,67 @@ const createFileFromString = (path, s) => fs.promises.writeFile(pathResolve(path
 
 const HOME = process.env.HOME
 
+const ade = assert.deepEqual
+
+const ase = assert.strictEqual
+
 describe('cratos', () => {
   describe('parseArgv', () => {
     it('cratos', async () => {
-      assertEqual({ arguments: [], flags: [] },
+      ade({ arguments: [], flags: [] },
         cratos.parseArgv(['node', 'cratos']),
       )
     })
     it('cratos -v', async () => {
-      assertEqual({ arguments: [], flags: ['-v'] },
+      ade({ arguments: [], flags: ['-v'] },
         cratos.parseArgv(['node', 'cratos', '-v']),
       )
     })
-    it('cratos --version', async () => { assertEqual({ arguments: [], flags: ['--version'] },
+    it('cratos --version', async () => { ade({ arguments: [], flags: ['--version'] },
         cratos.parseArgv(['node', 'cratos', '--version']),
       )
     })
-    it('cratos --path=.', async () => { assertEqual({ arguments: [], flags: ['--path=.'] },
+    it('cratos --path=.', async () => { ade({ arguments: [], flags: ['--path=.'] },
         cratos.parseArgv(['node', 'cratos', '--path=.']),
       )
     })
     it('cratos -h', async () => {
-      assertEqual({ arguments: [], flags: ['-h'] },
+      ade({ arguments: [], flags: ['-h'] },
         cratos.parseArgv(['node', 'cratos', '-h']),
       )
     })
     it('cratos --help', async () => {
-      assertEqual({ arguments: [], flags: ['--help'] },
+      ade({ arguments: [], flags: ['--help'] },
         cratos.parseArgv(['node', 'cratos', '--help']),
       )
     })
     it('cratos --unrecognied', async () => {
-      assertEqual({ arguments: [], flags: [] },
+      ade({ arguments: [], flags: [] },
         cratos.parseArgv(['node', 'cratos', '--unrecognied']),
       )
     })
     it('cratos some-command', async () => {
-      assertEqual({ arguments: ['some-command'], flags: [] },
+      ade({ arguments: ['some-command'], flags: [] },
         cratos.parseArgv(['node', 'cratos', 'some-command']),
       )
     })
     it('cratos some-command -n', async () => {
-      assertEqual({ arguments: ['some-command'], flags: ['-n'] },
+      ade({ arguments: ['some-command'], flags: ['-n'] },
         cratos.parseArgv(['node', 'cratos', 'some-command', '-n']),
       )
     })
     it('cratos some-command --dry-run', async () => {
-      assertEqual({ arguments: ['some-command'], flags: ['--dry-run'] },
+      ade({ arguments: ['some-command'], flags: ['--dry-run'] },
         cratos.parseArgv(['node', 'cratos', 'some-command', '--dry-run']),
       )
     })
     it('cratos dist patch', async () => {
-      assertEqual({ arguments: ['dist', 'patch'], flags: [] },
+      ade({ arguments: ['dist', 'patch'], flags: [] },
         cratos.parseArgv(['node', 'cratos', 'dist', 'patch']),
       )
     })
     it('cratos dist patch -n', async () => {
-      assertEqual({ arguments: ['dist', 'patch'], flags: ['-n'] },
+      ade({ arguments: ['dist', 'patch'], flags: ['-n'] },
         cratos.parseArgv(['node', 'cratos', 'dist', 'patch', '-n']),
       )
     })
@@ -197,7 +204,7 @@ describe('cratos', () => {
     })
     it('one valid project', async () => {
       await pathToProject('tmp/project')
-      assertEqual(
+      ade(
         await cratos.walkPathForModuleNames(pathResolve(__dirname, 'tmp')),
         [pathResolve(__dirname, 'tmp/project')],
       )
@@ -208,7 +215,7 @@ describe('cratos', () => {
         'tmp/a/project',
         'tmp/b/c/project',
       ])
-      assertEqual(
+      ade(
         await cratos.walkPathForModuleNames(pathResolve(__dirname, 'tmp')),
         [
           pathResolve(__dirname, 'tmp/a/project'),
@@ -219,7 +226,7 @@ describe('cratos', () => {
     })
     it('empty', async () => {
       await pathToEmpty('tmp/')
-      assertEqual(
+      ade(
         await cratos.walkPathForModuleNames(pathResolve(__dirname, 'tmp')),
         [],
       )
@@ -231,7 +238,7 @@ describe('cratos', () => {
         'tmp/node_modules/',
         'tmp/a/b/c/node_modules/',
       ])
-      assertEqual(
+      ade(
         await cratos.walkPathForModuleNames(pathResolve(__dirname, 'tmp')),
         [],
       )
@@ -246,7 +253,7 @@ describe('cratos', () => {
         'tmp/empty',
         'tmp/a/b/c/d/empty',
       ])
-      assertEqual(
+      ade(
         await cratos.walkPathForModuleNames(pathResolve(__dirname, 'tmp')),
         [
           pathResolve(__dirname, 'tmp/a/b/c/d/project'),
@@ -263,8 +270,8 @@ describe('cratos', () => {
     it('reads and parses package.json for path', async () => {
       await pathToProject('tmp/project')
       const y = cratos.getPackageJSON('tmp/project')
-      assertOk(y instanceof Promise)
-      assertEqual(await y, {
+      aok(y instanceof Promise)
+      ade(await y, {
         name: 'ayo',
         version: '0.0.1',
       })
@@ -292,8 +299,8 @@ describe('cratos', () => {
       await pathToProject('tmp/project')
       await createFileFromString('tmp/project/hey', 'hey')
       const y = cratos.getGitStatus('tmp/project')
-      assertOk(y instanceof Promise)
-      assertEqual(await y, {
+      aok(y instanceof Promise)
+      ade(await y, {
         branch: '## No commits yet on master',
         files: ['?? hey', '?? package.json'],
       })
@@ -324,10 +331,10 @@ describe('cratos', () => {
     it('gets info about a module', async () => {
       await pathToProject('tmp/project')
       const y = cratos.getModuleInfo('tmp/project')
-      assertOk(y instanceof Promise)
-      assertEqual(Object.keys(await y).length, infoFields.size)
+      aok(y instanceof Promise)
+      ade(Object.keys(await y).length, infoFields.size)
       for (const field in await y) {
-        assertOk(infoFields.has(field))
+        aok(infoFields.has(field))
       }
     })
     it('throws some Error if not found', async () => {
@@ -339,6 +346,9 @@ describe('cratos', () => {
   })
 
   describe('findModules', () => {
+    beforeEach(async () => {
+      process.env.CRATOS_PATH = ''
+    })
     afterEach(async () => {
       await rimraf(pathResolve(__dirname, 'tmp'))
       process.env.CRATOS_PATH = ''
@@ -353,18 +363,18 @@ describe('cratos', () => {
       ]
       await map(pathToProject)(projectPaths)
       await pathToEmpty('tmp/empty')
-      const y = cratos.findModules()
-      assertOk(y instanceof Promise)
+      const y = cratos.findModules({ arguments: [], flags: [] })
+      aok(y instanceof Promise)
       const output = await y
-      assertEqual(output.length, projectPaths.length)
+      ade(output.length, projectPaths.length)
       for (const path of projectPaths) {
-        assertOk(
+        aok(
           isDefined(output.find(module => module.path === pathResolve(path)))
         )
       }
     })
     it('finds modules in HOME if no CRATOS PATH', async () => {
-      assertOk(!process.env.CRATOS_PATH)
+      aok(!process.env.CRATOS_PATH)
       process.env.HOME = pathResolve('tmp')
       const projectPaths = [
         'tmp/project',
@@ -373,23 +383,47 @@ describe('cratos', () => {
       ]
       await map(pathToProject)(projectPaths)
       await pathToEmpty('tmp/empty')
-      const [y, stdout] = await captureStdout(cratos.findModules)()
-      assertEqual(stdout, '[WARNING] CRATOS_PATH not set; finding modules from HOME\n')
-      assertOk(y instanceof Promise)
+      const [y, stdout] = await captureStdout(cratos.findModules)({ flags: [], arguments: [] })
+      ade(stdout, '[WARNING] CRATOS_PATH not set; finding modules from HOME\n')
+      aok(y instanceof Promise)
       const output = await y
-      assertEqual(output.length, projectPaths.length)
+      ade(output.length, projectPaths.length)
       for (const path of projectPaths) {
-        assertOk(
+        aok(
+          isDefined(output.find(module => module.path === pathResolve(path)))
+        )
+      }
+    })
+    it('accepts a --path=my/path flag', async () => {
+      process.env.HOME = ''
+      process.env.CRATOS_PATH = ''
+      const projectPaths = [
+        'tmp/project',
+        'tmp/a/project',
+        'tmp/a/b/c/project',
+      ]
+      await map(pathToProject)(projectPaths)
+      await pathToEmpty('tmp/empty')
+      cratos.findModules({ flags: ['--path=tmp'], arguments: [] })
+      const [y, stdout] = await captureStdout(cratos.findModules)({
+        flags: ['--path=tmp'],
+        arguments: [],
+      })
+      aok(y instanceof Promise)
+      const output = await y
+      ade(output.length, projectPaths.length)
+      for (const path of projectPaths) {
+        aok(
           isDefined(output.find(module => module.path === pathResolve(path)))
         )
       }
     })
     it('throws Error for no CRATOS_PATH nor HOME', async () => {
-      assertOk(!process.env.CRATOS_PATH)
+      aok(!process.env.CRATOS_PATH)
       process.env.HOME = ''
-      assertOk(!process.env.HOME)
+      aok(!process.env.HOME)
       assert.throws(
-        cratos.findModules,
+        () => cratos.findModules({ flags: [], arguments: [] }),
         new Error('no entrypoint found; CRATOS_PATH or HOME environment variables required'),
       )
     })
@@ -404,7 +438,7 @@ describe('cratos', () => {
       process.env.CRATOS_PATH = ''
     })
     it('cratos', async () => {
-      assertEqual(
+      ade(
         cratos.getUsage(),
         captureStdout(cratos.switchCommand)({
           arguments: [],
@@ -413,7 +447,7 @@ describe('cratos', () => {
       )
     })
     it('cratos -h', async () => {
-      assertEqual(
+      ade(
         cratos.getUsage(),
         captureStdout(cratos.switchCommand)({
           arguments: [],
@@ -422,7 +456,7 @@ describe('cratos', () => {
       )
     })
     it('cratos --help', async () => {
-      assertEqual(
+      ade(
         cratos.getUsage(),
         captureStdout(cratos.switchCommand)({
           arguments: [],
@@ -431,7 +465,7 @@ describe('cratos', () => {
       )
     })
     it('cratos -v', async () => {
-      assertEqual(
+      ade(
         'v' + cratosVersion + '\n',
         captureStdout(cratos.switchCommand)({
           arguments: [],
@@ -440,7 +474,7 @@ describe('cratos', () => {
       )
     })
     it('cratos --version', async () => {
-      assertEqual(
+      ade(
         'v' + cratosVersion + '\n',
         captureStdout(cratos.switchCommand)({
           arguments: [],
@@ -454,7 +488,7 @@ describe('cratos', () => {
         'tmp/b/c/project',
         'tmp/project',
       ])
-      assertEqual((await captureStdout(cratos.switchCommand)({
+      ade((await captureStdout(cratos.switchCommand)({
         arguments: ['list'],
         flags: [],
       }))[1], [
@@ -464,7 +498,7 @@ describe('cratos', () => {
       ].join('\n') + '\n')
     })
     it('cratos list; turns up empty', async () => {
-      assertEqual((await captureStdout(cratos.switchCommand)({
+      ade((await captureStdout(cratos.switchCommand)({
         arguments: ['list'],
         flags: [],
       }))[1], '')
@@ -475,7 +509,7 @@ describe('cratos', () => {
         'tmp/b/c/project',
         'tmp/project',
       ])
-      assertEqual((await captureStdout(cratos.switchCommand)({
+      ade((await captureStdout(cratos.switchCommand)({
         arguments: ['ls'],
         flags: [],
       }))[1], [
@@ -485,7 +519,7 @@ describe('cratos', () => {
       ].join('\n') + '\n')
     })
     it('cratos ls; turns up empty', async () => {
-      assertEqual((await captureStdout(cratos.switchCommand)({
+      ade((await captureStdout(cratos.switchCommand)({
         arguments: ['ls'],
         flags: [],
       }))[1], '')
@@ -496,7 +530,7 @@ describe('cratos', () => {
         'tmp/b/c/project',
         'tmp/project',
       ])
-      assertEqual((await captureStdout(cratos.switchCommand)({
+      ade((await captureStdout(cratos.switchCommand)({
         arguments: ['status'],
         flags: [],
       }))[1], [
@@ -506,7 +540,7 @@ describe('cratos', () => {
       ].join('\n') + '\n')
     })
     it('cratos status; turns up empty', async () => {
-      assertEqual((await captureStdout(cratos.switchCommand)({
+      ade((await captureStdout(cratos.switchCommand)({
         arguments: ['status'],
         flags: [],
       }))[1], '')
@@ -517,7 +551,7 @@ describe('cratos', () => {
         'tmp/b/c/project',
         'tmp/project',
       ])
-      assertEqual((await captureStdout(cratos.switchCommand)({
+      ade((await captureStdout(cratos.switchCommand)({
         arguments: ['s'],
         flags: [],
       }))[1], [
@@ -527,7 +561,7 @@ describe('cratos', () => {
       ].join('\n') + '\n')
     })
     it('cratos s; turns up empty', async () => {
-      assertEqual((await captureStdout(cratos.switchCommand)({
+      ade((await captureStdout(cratos.switchCommand)({
         arguments: ['s'],
         flags: [],
       }))[1], '')
@@ -538,7 +572,7 @@ describe('cratos', () => {
         'tmp/b/c/project',
         'tmp/project',
       ])
-      assertEqual((await captureStdout(cratos.switchCommand)({
+      ade((await captureStdout(cratos.switchCommand)({
         arguments: ['branch'],
         flags: [],
       }))[1], [
@@ -548,7 +582,7 @@ describe('cratos', () => {
       ].join('\n') + '\n')
     })
     it('cratos branch; turns up empty', async () => {
-      assertEqual((await captureStdout(cratos.switchCommand)({
+      ade((await captureStdout(cratos.switchCommand)({
         arguments: ['branch'],
         flags: [],
       }))[1], '')
@@ -559,7 +593,7 @@ describe('cratos', () => {
         'tmp/b/c/project',
         'tmp/project',
       ])
-      assertEqual((await captureStdout(cratos.switchCommand)({
+      ade((await captureStdout(cratos.switchCommand)({
         arguments: ['b'],
         flags: [],
       }))[1], [
@@ -569,13 +603,13 @@ describe('cratos', () => {
       ].join('\n') + '\n')
     })
     it('cratos b; turns up empty', async () => {
-      assertEqual((await captureStdout(cratos.switchCommand)({
+      ade((await captureStdout(cratos.switchCommand)({
         arguments: ['b'],
         flags: [],
       }))[1], '')
     })
     it('cratos unknown', async () => {
-      assertEqual(
+      ade(
         `unknown is not a cratos command\n${cratos.getUsage()}`,
         captureStdout(cratos.switchCommand)({
           arguments: ['unknown'],
