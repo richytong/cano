@@ -42,7 +42,8 @@ usage: cratos [--version] [-v] [--help] [-h] <command> [<args>]
 commands:
 
     list, ls                      list all modules
-    s[tatus]                      git status on all modules
+    branch, b                     git branch all modules
+    s[tatus]                      git status all modules
     ch[eckout] <branch>           conservative git checkout branch for all modules
     fetch                         fetch remotes for all modules
     merge                         conservative git merge current branch with upstream for all modules
@@ -172,17 +173,21 @@ const getModuleInfo = pathArg => pipe([
     path: get('path'),
     packageName: get('packageJSON.name'),
     packageVersion: get('packageJSON.version'),
-    gitStatusBranch: get('gitStatus.branch'),
+    gitStatusBranch: pipe([
+      get('gitStatus.branch'),
+      s => s.slice(3),
+    ]),
     gitStatusFiles: get('gitStatus.files'),
   }),
 ])(pathArg)
 
-const logWithLevel = level => (...args) => tap(x => console.log(level, ...args))
+const logWithLevel = level => (...args) => tap(x => console.log(
+  level,
+  ...args.map(arg => typeof arg === 'function' ? arg(x) : arg),
+))
 
 const logger = {
-  data: logWithLevel('[DATA]'),
-  info: logWithLevel('[INFO]'),
-  warn: logWithLevel('[WARN]'),
+  warn: logWithLevel('[WARNING]'),
 }
 
 // parsedArgv {
@@ -207,11 +212,42 @@ const findModules = parsedArgv => pipe([
   ])),
 ])(parsedArgv)
 
-// parsedArgv => ()
-const commandList = parsedArgv => pipe([
+// () => ()
+const commandList = () => pipe([
   findModules,
-  trace,
-])(parsedArgv)
+  map(pipe([
+    fork([
+      get('packageName'),
+      get('packageVersion'),
+    ]),
+    fields => fields.join('-'),
+    trace,
+  ])),
+])()
+
+// () => ()
+const commandStatus = () => pipe([
+  findModules,
+  map(pipe([
+    ({ packageName, gitStatusFiles }) => map(pipe([
+      file => [packageName, file].join(' '),
+      trace,
+    ]))(gitStatusFiles),
+  ])),
+])()
+
+// () => ()
+const commandBranch = () => pipe([
+  findModules,
+  map(pipe([
+    fork([
+      get('packageName'),
+      get('gitStatusBranch'),
+    ]),
+    fields => fields.join(' '),
+    trace,
+  ])),
+])()
 
 // string => parsedArgv => boolean
 const hasFlag = flag => ({ flags }) => flags.includes(flag)
@@ -233,6 +269,14 @@ const switchCommand = parsedArgv => switchCase([
     isCommand('ls'),
     isCommand('list'),
   ]), commandList,
+  or([
+    isCommand('s'),
+    isCommand('status'),
+  ]), commandStatus,
+  or([
+    isCommand('b'),
+    isCommand('branch'),
+  ]), commandBranch,
   log(x => `${x.arguments[0]} is not a cratos command\n${USAGE}`),
 ])(parsedArgv)
 
@@ -253,6 +297,8 @@ cratos.getGitStatus = getGitStatus
 cratos.getModuleInfo = getModuleInfo
 cratos.findModules = findModules
 cratos.commandList = commandList
+cratos.commandStatus = commandStatus
+cratos.commandBranch = commandBranch
 cratos.switchCommand = switchCommand
 
 module.exports = cratos

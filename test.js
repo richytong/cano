@@ -79,6 +79,8 @@ const assertOk = assert.ok
 
 const writeStdout = process.stdout.write.bind(process.stdout)
 
+const isPromise = x => x && typeof x.then === 'function'
+
 const captureStdout = f => x => {
   let output = ''
   process.stdout.write = (chunk, encoding, cb) => {
@@ -86,8 +88,13 @@ const captureStdout = f => x => {
     // writeStdout(chunk, encoding, cb)
   }
   const y = f(x)
-  process.stdout.write = writeStdout // release stdout
-  return [y, output]
+  return isPromise(y) ? y.then(res => (
+    process.stdout.write = writeStdout, // release stdout
+    [y, output]
+  )) : (
+    process.stdout.write = writeStdout, // release stdout
+    [y, output]
+  )
 }
 
 const git = (args, path) => execa('git', [
@@ -352,8 +359,8 @@ describe('cratos', () => {
       ]
       await map(pathToProject)(projectPaths)
       await pathToEmpty('tmp/empty')
-      const [y, stdout] = captureStdout(cratos.findModules)()
-      assertEqual(stdout, '[WARN] CRATOS_PATH not set; finding modules from HOME\n')
+      const [y, stdout] = await captureStdout(cratos.findModules)()
+      assertEqual(stdout, '[WARNING] CRATOS_PATH not set; finding modules from HOME\n')
       assertOk(y instanceof Promise)
       const output = await y
       assertEqual(output.length, projectPaths.length)
@@ -371,6 +378,87 @@ describe('cratos', () => {
         cratos.findModules,
         new Error('no entrypoint found; CRATOS_PATH or HOME environment variables required'),
       )
+    })
+  })
+
+  describe('commandList', () => {
+    beforeEach(async () => {
+      process.env.CRATOS_PATH = 'tmp'
+    })
+    afterEach(async () => {
+      await rimraf(pathResolve(__dirname, 'tmp'))
+      process.env.CRATOS_PATH = ''
+    })
+    it('lists cratos modules', async () => {
+      await map(pathToProject)([
+        'tmp/a/project',
+        'tmp/b/c/project',
+        'tmp/project',
+      ])
+      const [, stdout] = await captureStdout(cratos.commandList)()
+      assertEqual(stdout, [
+        'ayo-0.0.1',
+        'ayo-0.0.1',
+        'ayo-0.0.1',
+      ].join('\n') + '\n')
+    })
+    it('turns up empty', async () => {
+      const [, stdout] = await captureStdout(cratos.commandList)()
+      assertEqual(stdout, '')
+    })
+  })
+
+  describe('commandStatus', () => {
+    beforeEach(async () => {
+      process.env.CRATOS_PATH = 'tmp'
+    })
+    afterEach(async () => {
+      await rimraf(pathResolve(__dirname, 'tmp'))
+      process.env.CRATOS_PATH = ''
+    })
+    it('get cratos modules\' status', async () => {
+      await map(pathToProject)([
+        'tmp/a/project',
+        'tmp/b/c/project',
+        'tmp/project',
+      ])
+      const [, stdout] = await captureStdout(cratos.commandStatus)()
+      assertEqual(stdout, [
+        'ayo ?? package.json',
+        'ayo ?? package.json',
+        'ayo ?? package.json',
+      ].join('\n') + '\n')
+    })
+    it('turns up empty', async () => {
+      const [, stdout] = await captureStdout(cratos.commandStatus)()
+      assertEqual(stdout, '')
+    })
+  })
+
+  describe('commandBranch', () => {
+    beforeEach(async () => {
+      process.env.CRATOS_PATH = 'tmp'
+    })
+    afterEach(async () => {
+      await rimraf(pathResolve(__dirname, 'tmp'))
+      process.env.CRATOS_PATH = ''
+    })
+    it('get cratos modules\' current branch', async () => {
+      await map(pathToProject)([
+        'tmp/a/project',
+        'tmp/b/c/project',
+        'tmp/project',
+      ])
+      const [, stdout] = await captureStdout(cratos.commandBranch)()
+      assertEqual(stdout, [
+        'ayo No commits yet on master',
+        'ayo No commits yet on master',
+        'ayo No commits yet on master',
+      ].join('\n') + '\n')
+    })
+    it('turns up empty', async () => {
+      const [, stdout] = await captureStdout(cratos.commandBranch)()
+      assertEqual(stdout, '')
     })
   })
 
