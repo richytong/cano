@@ -42,18 +42,31 @@ usage: cratos [--version] [-v] [--help] [-h] [--path=<path>] <command> [<args>]
 
 commands:
 
-    list, ls                      list all modules
-    branch, b                     git branch all modules
-    s[tatus]                      git status all modules
-    ch[eckout] <branch>           conservative git checkout branch for all modules
-    fetch                         fetch remotes for all modules
-    merge                         conservative git merge current branch with upstream for all modules
-    pull                          conservative git pull upstream into current branch for all modules
-    push                          conservative git push current branch to upstream for all modules
-    dist <major|minor|patch>      version bump && publish all modules, skip unchanged modules
-    clean                         git clean -fxdq for all modules
-    i[nstall]                     install all module dependencies into module local node_modules, does not create package-lock
-    link, ln                      symlink all modules selectively into all modules\' local node_modules
+    list, ls                      list cratos modules
+
+    branch, b                     get branch for cratos modules
+
+    s[tatus]                      get status for cratos modules
+
+    ch[eckout] <branch>           checkout branch for relevant cratos modules
+
+    fetch                         fetch remotes for cratos modules
+
+    merge                         merge remote into current branch for cratos modules
+
+    pull                          fetch+merge remote into current branch for cratos modules
+
+    push                          push current branch to remote for cratos modules
+
+    dist <major|minor|patch>      version bump && publish cratos modules, skip unchanged modules
+
+    clean                         remove ignored and untracked files for cratos modules
+
+    i[nstall]                     install cratos module dependencies into local node_modules
+
+    i[nstall] --save, -s <mod>    install and save mod into cratos module dependencies modify package.json
+
+    link, ln                      symlink cratos modules into all other cratos modules\' local node_modules
 `.trimStart()
 //     test <path|module>            run module tests defined by test script or mocha at module root
 //     run <script> <path|module>    run module script
