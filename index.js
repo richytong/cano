@@ -38,7 +38,7 @@ const isEmpty = x => x.length === 0
 const split = delim => s => s.split(delim)
 
 const USAGE = `
-usage: cratos [--version] [-v] [--help] [-h] <command> [<args>]
+usage: cratos [--version] [-v] [--help] [-h] [--path=<path>] <command> [<args>]
 
 commands:
 
@@ -62,10 +62,11 @@ const FLAGS = new Set([
   '-h', '--help',
   '-n', '--dry-run',
   '-v', '--version',
+  '--path',
 ])
 
 // string => boolean
-const isFlag = s => FLAGS.has(s)
+const isFlag = s => FLAGS.has(s.split('=')[0])
 
 // string => string => boolean
 const startsWith = prefix => s => s.startsWith(prefix)
@@ -275,16 +276,16 @@ const switchCommand = parsedArgv => switchCase([
     isBaseCommand,
   ]), log(USAGE),
   or([
-    isCommand('ls'),
     isCommand('list'),
+    isCommand('ls'),
   ]), commandList,
   or([
-    isCommand('s'),
     isCommand('status'),
+    isCommand('s'),
   ]), commandStatus,
   or([
-    isCommand('b'),
     isCommand('branch'),
+    isCommand('b'),
   ]), commandBranch,
   log(x => `${x.arguments[0]} is not a cratos command\n${USAGE}`),
 ])(parsedArgv)
@@ -305,9 +306,6 @@ cratos.getPackageJSON = getPackageJSON
 cratos.getGitStatus = getGitStatus
 cratos.getModuleInfo = getModuleInfo
 cratos.findModules = findModules
-cratos.commandList = commandList
-cratos.commandStatus = commandStatus
-cratos.commandBranch = commandBranch
 cratos.switchCommand = switchCommand
 
 module.exports = cratos

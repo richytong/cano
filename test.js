@@ -6,6 +6,7 @@ const util = require('util')
 const fs = require('fs')
 const rimrafCb = require('rimraf')
 const cratos = require('.')
+const { version: cratosVersion } = require('./package.json')
 
 const { inspect, promisify } = util
 
@@ -135,6 +136,19 @@ describe('cratos', () => {
         cratos.parseArgv(['node', 'cratos']),
       )
     })
+    it('cratos -v', async () => {
+      assertEqual({ arguments: [], flags: ['-v'] },
+        cratos.parseArgv(['node', 'cratos', '-v']),
+      )
+    })
+    it('cratos --version', async () => { assertEqual({ arguments: [], flags: ['--version'] },
+        cratos.parseArgv(['node', 'cratos', '--version']),
+      )
+    })
+    it('cratos --path=.', async () => { assertEqual({ arguments: [], flags: ['--path=.'] },
+        cratos.parseArgv(['node', 'cratos', '--path=.']),
+      )
+    })
     it('cratos -h', async () => {
       assertEqual({ arguments: [], flags: ['-h'] },
         cratos.parseArgv(['node', 'cratos', '-h']),
@@ -181,14 +195,14 @@ describe('cratos', () => {
     afterEach(async () => {
       await rimraf(pathResolve(__dirname, 'tmp'))
     })
-    it('walk tmp; one valid project', async () => {
+    it('one valid project', async () => {
       await pathToProject('tmp/project')
       assertEqual(
         await cratos.walkPathForModuleNames(pathResolve(__dirname, 'tmp')),
         [pathResolve(__dirname, 'tmp/project')],
       )
     })
-    it('walk tmp; multiple valid projects', async () => {
+    it('multiple valid projects', async () => {
       await map(pathToProject)([
         'tmp/project',
         'tmp/a/project',
@@ -203,14 +217,14 @@ describe('cratos', () => {
         ],
       )
     })
-    it('walk tmp; empty', async () => {
+    it('empty', async () => {
       await pathToEmpty('tmp/')
       assertEqual(
         await cratos.walkPathForModuleNames(pathResolve(__dirname, 'tmp')),
         [],
       )
     })
-    it('walk tmp; ignores .git and node_modules', async () => {
+    it('ignores .git and node_modules', async () => {
       await map(pathToProject)([
         'tmp/.git/',
         'tmp/a/b/.git/',
@@ -222,7 +236,7 @@ describe('cratos', () => {
         [],
       )
     })
-    it('walk tmp; bunch of cases', async () => {
+    it('bunch of cases', async () => {
       await map(pathToProject)([
         'tmp/project',
         'tmp/project/sub/project',
@@ -381,88 +395,14 @@ describe('cratos', () => {
     })
   })
 
-  describe('commandList', () => {
-    beforeEach(async () => {
-      process.env.CRATOS_PATH = 'tmp'
-    })
-    afterEach(async () => {
-      await rimraf(pathResolve(__dirname, 'tmp'))
-      process.env.CRATOS_PATH = ''
-    })
-    it('lists cratos modules', async () => {
-      await map(pathToProject)([
-        'tmp/a/project',
-        'tmp/b/c/project',
-        'tmp/project',
-      ])
-      const [, stdout] = await captureStdout(cratos.commandList)()
-      assertEqual(stdout, [
-        'ayo-0.0.1',
-        'ayo-0.0.1',
-        'ayo-0.0.1',
-      ].join('\n') + '\n')
-    })
-    it('turns up empty', async () => {
-      const [, stdout] = await captureStdout(cratos.commandList)()
-      assertEqual(stdout, '')
-    })
-  })
-
-  describe('commandStatus', () => {
-    beforeEach(async () => {
-      process.env.CRATOS_PATH = 'tmp'
-    })
-    afterEach(async () => {
-      await rimraf(pathResolve(__dirname, 'tmp'))
-      process.env.CRATOS_PATH = ''
-    })
-    it('get cratos modules\' status', async () => {
-      await map(pathToProject)([
-        'tmp/a/project',
-        'tmp/b/c/project',
-        'tmp/project',
-      ])
-      const [, stdout] = await captureStdout(cratos.commandStatus)()
-      assertEqual(stdout, [
-        'ayo ?? package.json',
-        'ayo ?? package.json',
-        'ayo ?? package.json',
-      ].join('\n') + '\n')
-    })
-    it('turns up empty', async () => {
-      const [, stdout] = await captureStdout(cratos.commandStatus)()
-      assertEqual(stdout, '')
-    })
-  })
-
-  describe('commandBranch', () => {
-    beforeEach(async () => {
-      process.env.CRATOS_PATH = 'tmp'
-    })
-    afterEach(async () => {
-      await rimraf(pathResolve(__dirname, 'tmp'))
-      process.env.CRATOS_PATH = ''
-    })
-    it('get cratos modules\' current branch', async () => {
-      await map(pathToProject)([
-        'tmp/a/project',
-        'tmp/b/c/project',
-        'tmp/project',
-      ])
-      const [, stdout] = await captureStdout(cratos.commandBranch)()
-      assertEqual(stdout, [
-        'ayo No commits yet on master',
-        'ayo No commits yet on master',
-        'ayo No commits yet on master',
-      ].join('\n') + '\n')
-    })
-    it('turns up empty', async () => {
-      const [, stdout] = await captureStdout(cratos.commandBranch)()
-      assertEqual(stdout, '')
-    })
-  })
-
   describe('switchCommand', () => {
+    beforeEach(async () => {
+      process.env.CRATOS_PATH = 'tmp'
+    })
+    afterEach(async () => {
+      await rimraf(pathResolve(__dirname, 'tmp'))
+      process.env.CRATOS_PATH = ''
+    })
     it('cratos', async () => {
       assertEqual(
         cratos.getUsage(),
@@ -489,6 +429,150 @@ describe('cratos', () => {
           flags: ['--help'],
         })[1],
       )
+    })
+    it('cratos -v', async () => {
+      assertEqual(
+        'v' + cratosVersion + '\n',
+        captureStdout(cratos.switchCommand)({
+          arguments: [],
+          flags: ['-v'],
+        })[1],
+      )
+    })
+    it('cratos --version', async () => {
+      assertEqual(
+        'v' + cratosVersion + '\n',
+        captureStdout(cratos.switchCommand)({
+          arguments: [],
+          flags: ['--version'],
+        })[1],
+      )
+    })
+    it('cratos list; list cratos modules', async () => {
+      await map(pathToProject)([
+        'tmp/a/project',
+        'tmp/b/c/project',
+        'tmp/project',
+      ])
+      assertEqual((await captureStdout(cratos.switchCommand)({
+        arguments: ['list'],
+        flags: [],
+      }))[1], [
+        'ayo-0.0.1',
+        'ayo-0.0.1',
+        'ayo-0.0.1',
+      ].join('\n') + '\n')
+    })
+    it('cratos list; turns up empty', async () => {
+      assertEqual((await captureStdout(cratos.switchCommand)({
+        arguments: ['list'],
+        flags: [],
+      }))[1], '')
+    })
+    it('cratos ls; list cratos modules', async () => {
+      await map(pathToProject)([
+        'tmp/a/project',
+        'tmp/b/c/project',
+        'tmp/project',
+      ])
+      assertEqual((await captureStdout(cratos.switchCommand)({
+        arguments: ['ls'],
+        flags: [],
+      }))[1], [
+        'ayo-0.0.1',
+        'ayo-0.0.1',
+        'ayo-0.0.1',
+      ].join('\n') + '\n')
+    })
+    it('cratos ls; turns up empty', async () => {
+      assertEqual((await captureStdout(cratos.switchCommand)({
+        arguments: ['ls'],
+        flags: [],
+      }))[1], '')
+    })
+    it('cratos status; get git status for cratos modules', async () => {
+      await map(pathToProject)([
+        'tmp/a/project',
+        'tmp/b/c/project',
+        'tmp/project',
+      ])
+      assertEqual((await captureStdout(cratos.switchCommand)({
+        arguments: ['status'],
+        flags: [],
+      }))[1], [
+        'ayo ?? package.json',
+        'ayo ?? package.json',
+        'ayo ?? package.json',
+      ].join('\n') + '\n')
+    })
+    it('cratos status; turns up empty', async () => {
+      assertEqual((await captureStdout(cratos.switchCommand)({
+        arguments: ['status'],
+        flags: [],
+      }))[1], '')
+    })
+    it('cratos s; get git status for cratos modules', async () => {
+      await map(pathToProject)([
+        'tmp/a/project',
+        'tmp/b/c/project',
+        'tmp/project',
+      ])
+      assertEqual((await captureStdout(cratos.switchCommand)({
+        arguments: ['s'],
+        flags: [],
+      }))[1], [
+        'ayo ?? package.json',
+        'ayo ?? package.json',
+        'ayo ?? package.json',
+      ].join('\n') + '\n')
+    })
+    it('cratos s; turns up empty', async () => {
+      assertEqual((await captureStdout(cratos.switchCommand)({
+        arguments: ['s'],
+        flags: [],
+      }))[1], '')
+    })
+    it('cratos branch; get git branch for cratos modules', async () => {
+      await map(pathToProject)([
+        'tmp/a/project',
+        'tmp/b/c/project',
+        'tmp/project',
+      ])
+      assertEqual((await captureStdout(cratos.switchCommand)({
+        arguments: ['branch'],
+        flags: [],
+      }))[1], [
+        'ayo No commits yet on master',
+        'ayo No commits yet on master',
+        'ayo No commits yet on master',
+      ].join('\n') + '\n')
+    })
+    it('cratos branch; turns up empty', async () => {
+      assertEqual((await captureStdout(cratos.switchCommand)({
+        arguments: ['branch'],
+        flags: [],
+      }))[1], '')
+    })
+    it('cratos b; get git branch for cratos modules', async () => {
+      await map(pathToProject)([
+        'tmp/a/project',
+        'tmp/b/c/project',
+        'tmp/project',
+      ])
+      assertEqual((await captureStdout(cratos.switchCommand)({
+        arguments: ['b'],
+        flags: [],
+      }))[1], [
+        'ayo No commits yet on master',
+        'ayo No commits yet on master',
+        'ayo No commits yet on master',
+      ].join('\n') + '\n')
+    })
+    it('cratos b; turns up empty', async () => {
+      assertEqual((await captureStdout(cratos.switchCommand)({
+        arguments: ['b'],
+        flags: [],
+      }))[1], '')
     })
     it('cratos unknown', async () => {
       assertEqual(
