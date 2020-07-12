@@ -3,6 +3,7 @@ const trace = require('rubico/x/trace')
 const execa = require('execa')
 const nodePath = require('path')
 const fs = require('fs')
+const cratosPackageJSON = require('./package.json')
 
 const {
   pipe, fork, assign,
@@ -57,7 +58,11 @@ commands:
 //     test <path|module>            run module tests defined by test script or mocha at module root
 //     run <script> <path|module>    run module script
 
-const FLAGS = new Set(['-h', '--help', '-n', '--dry-run'])
+const FLAGS = new Set([
+  '-h', '--help',
+  '-n', '--dry-run',
+  '-v', '--version',
+])
 
 // string => boolean
 const isFlag = s => FLAGS.has(s)
@@ -260,6 +265,10 @@ const isCommand = cmd => ({ arguments }) => arguments[0] === cmd
 
 // parsedArgv => ()
 const switchCommand = parsedArgv => switchCase([
+  or([
+    hasFlag('--version'),
+    hasFlag('-v'),
+  ]), log('v' + cratosPackageJSON.version),
   or([
     hasFlag('--help'),
     hasFlag('-h'),
