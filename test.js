@@ -20,7 +20,11 @@ const {
   get, pick, omit,
 } = rubico
 
+const identity = x => x
+
 const pathResolve = nodePath.resolve
+
+const isDefined = x => typeof x !== 'undefined' && x !== null
 
 const isIterable = x => isDefined(x) && isDefined(x[Symbol.iterator])
 
@@ -81,9 +85,9 @@ const captureStdout = f => x => {
     if (typeof chunk === 'string') output += chunk
     // writeStdout(chunk, encoding, cb)
   }
-  f(x)
+  const y = f(x)
   process.stdout.write = writeStdout // release stdout
-  return output
+  return [y, output]
 }
 
 const git = (args, path) => execa('git', [
@@ -92,17 +96,12 @@ const git = (args, path) => execa('git', [
   ...args,
 ])
 
-const packageJSONFixture = {
-  name: 'ayo',
-  version: '0.0.1',
-}
-
 const createProjectFixture = path => fork.series([
   path => fs.promises.mkdir(pathResolve(path), { recursive: true }),
   path => git(['init'], pathResolve(path)),
   path => fs.promises.writeFile(
     pathResolve(path, 'package.json'),
-    JSON.stringify(packageJSONFixture, null, 2),
+    JSON.stringify({ name: 'ayo', version: '0.0.1' }, null, 2),
   ),
 ])(path)
 
@@ -119,6 +118,8 @@ const pathToEmpty = pipe([
 ])
 
 const createFileFromString = (path, s) => fs.promises.writeFile(pathResolve(path), s)
+
+const HOME = process.env.HOME
 
 describe('cratos', () => {
   describe('parseArgv', () => {
@@ -242,7 +243,10 @@ describe('cratos', () => {
       await pathToProject('tmp/project')
       const y = cratos.getPackageJSON('tmp/project')
       assertOk(y instanceof Promise)
-      assertEqual(await y, packageJSONFixture)
+      assertEqual(await y, {
+        name: 'ayo',
+        version: '0.0.1',
+      })
     })
     it('throws Error on invalid path', async () => {
       await pathToEmpty('tmp/empty')
@@ -293,7 +297,7 @@ describe('cratos', () => {
       await rimraf(pathResolve(__dirname, 'tmp'))
     })
     const infoFields = new Set([
-      'packageName', 'packageVersion',
+      'path', 'packageName', 'packageVersion',
       'gitStatusBranch', 'gitStatusFiles',
     ])
     it('gets info about a module', async () => {
@@ -313,6 +317,63 @@ describe('cratos', () => {
     })
   })
 
+  describe('findModules', () => {
+    afterEach(async () => {
+      await rimraf(pathResolve(__dirname, 'tmp'))
+      process.env.CRATOS_PATH = ''
+      process.env.HOME = HOME
+    })
+    it('finds modules in CRATOS_PATH', async () => {
+      process.env.CRATOS_PATH = `${pathResolve('tmp/a')}:${pathResolve('tmp/project')}`
+      const projectPaths = [
+        'tmp/project',
+        'tmp/a/project',
+        'tmp/a/b/c/project',
+      ]
+      await map(pathToProject)(projectPaths)
+      await pathToEmpty('tmp/empty')
+      const y = cratos.findModules()
+      assertOk(y instanceof Promise)
+      const output = await y
+      assertEqual(output.length, projectPaths.length)
+      for (const path of projectPaths) {
+        assertOk(
+          isDefined(output.find(module => module.path === pathResolve(path)))
+        )
+      }
+    })
+    it('finds modules in HOME if no CRATOS PATH', async () => {
+      assertOk(!process.env.CRATOS_PATH)
+      process.env.HOME = pathResolve('tmp')
+      const projectPaths = [
+        'tmp/project',
+        'tmp/a/project',
+        'tmp/a/b/c/project',
+      ]
+      await map(pathToProject)(projectPaths)
+      await pathToEmpty('tmp/empty')
+      const [y, stdout] = captureStdout(cratos.findModules)()
+      assertEqual(stdout, '[WARN] CRATOS_PATH not set; finding modules from HOME\n')
+      assertOk(y instanceof Promise)
+      const output = await y
+      assertEqual(output.length, projectPaths.length)
+      for (const path of projectPaths) {
+        assertOk(
+          isDefined(output.find(module => module.path === pathResolve(path)))
+        )
+      }
+    })
+    it('throws Error for no CRATOS_PATH nor HOME', async () => {
+      assertOk(!process.env.CRATOS_PATH)
+      process.env.HOME = ''
+      assertOk(!process.env.HOME)
+      assert.throws(
+        cratos.findModules,
+        new Error('no entrypoint found; CRATOS_PATH or HOME environment variables required'),
+      )
+    })
+  })
+
   describe('switchCommand', () => {
     it('cratos', async () => {
       assertEqual(
@@ -320,7 +381,7 @@ describe('cratos', () => {
         captureStdout(cratos.switchCommand)({
           arguments: [],
           flags: [],
-        }),
+        })[1],
       )
     })
     it('cratos -h', async () => {
@@ -329,7 +390,7 @@ describe('cratos', () => {
         captureStdout(cratos.switchCommand)({
           arguments: [],
           flags: ['-h'],
-        }),
+        })[1],
       )
     })
     it('cratos --help', async () => {
@@ -338,7 +399,7 @@ describe('cratos', () => {
         captureStdout(cratos.switchCommand)({
           arguments: [],
           flags: ['--help'],
-        }),
+        })[1],
       )
     })
     it('cratos unknown', async () => {
@@ -347,7 +408,7 @@ describe('cratos', () => {
         captureStdout(cratos.switchCommand)({
           arguments: ['unknown'],
           flags: [],
-        }),
+        })[1],
       )
     })
   })

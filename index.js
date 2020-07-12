@@ -82,6 +82,8 @@ const parseArgv = argv => fork({
 
 const hasEnvVar = name => () => !!process.env[name]
 
+const getEnvVar = name => () => process.env[name]
+
 // Directory {
 //   path: string,
 //   dirents: [NodeDirent],
@@ -146,7 +148,7 @@ const getGitStatus = pathArg => pipe([
     },
   ),
   get('stdout'),
-  split('\n'),
+  stdout => stdout.split('\n'),
   fork({
     branch: get(0),
     files: slice(1),
@@ -162,10 +164,12 @@ const getGitStatus = pathArg => pipe([
  */
 const getModuleInfo = pathArg => pipe([
   fork({
+    path: identity,
     packageJSON: getPackageJSON,
     gitStatus: getGitStatus,
   }),
   fork({
+    path: get('path'),
     packageName: get('packageJSON.name'),
     packageVersion: get('packageJSON.version'),
     gitStatusBranch: get('gitStatus.branch'),
@@ -173,26 +177,40 @@ const getModuleInfo = pathArg => pipe([
   }),
 ])(pathArg)
 
-// parsedArgv => modulePaths [string]
-const findModules = pipe([
+const logWithLevel = level => (...args) => tap(x => console.log(level, ...args))
+
+const logger = {
+  data: logWithLevel('[DATA]'),
+  info: logWithLevel('[INFO]'),
+  warn: logWithLevel('[WARN]'),
+}
+
+// parsedArgv {
+//   arguments: [string],
+// } => modulePaths [string]
+const findModules = parsedArgv => pipe([
   switchCase([
-    gt(1, get('arguments.length')), pipe([get('arguments'), last]),
-    hasEnvVar('CRATOS_PATH'), () => process.env.CRATOS_PATH,
-    hasEnvVar('HOME'), () => process.env.HOME,
+    hasEnvVar('CRATOS_PATH'), getEnvVar('CRATOS_PATH'),
+    hasEnvVar('HOME'), pipe([
+      logger.warn('CRATOS_PATH not set; finding modules from HOME'),
+      getEnvVar('HOME'),
+    ]),
     () => {
-      throw new RangeError('no entrypoint found; CRATOS_PATH or HOME environment variables required')
+      throw new Error('no entrypoint found; CRATOS_PATH or HOME environment variables required')
     },
   ]),
-  split(':'),
-  map(pipe([
+  maybeDelimitedPath => maybeDelimitedPath.split(':'),
+  flatMap(pipe([
     pathResolve,
     walkPathForModuleNames,
+    map(getModuleInfo),
   ])),
-])
+])(parsedArgv)
 
 // parsedArgv => ()
 const commandList = parsedArgv => pipe([
-  getEntrypoints,
+  findModules,
+  trace,
 ])(parsedArgv)
 
 // string => parsedArgv => boolean
@@ -219,19 +237,21 @@ const switchCommand = parsedArgv => switchCase([
 ])(parsedArgv)
 
 // argv [string] => ()
-function cratos(argv) {
-  return pipe([
-    parseArgv,
-    switchCommand,
-  ])(argv)
-}
+const cli = argv => pipe([
+  parseArgv,
+  switchCommand,
+])(argv)
 
+const cratos = {}
+
+cratos.cli = cli
 cratos.getUsage = () => USAGE + '\n'
 cratos.parseArgv = parseArgv
 cratos.walkPathForModuleNames = walkPathForModuleNames
 cratos.getPackageJSON = getPackageJSON
 cratos.getGitStatus = getGitStatus
 cratos.getModuleInfo = getModuleInfo
+cratos.findModules = findModules
 cratos.commandList = commandList
 cratos.switchCommand = switchCommand
 

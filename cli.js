@@ -1,5 +1,5 @@
 #!/usr/bin/env node
 
-const cratos = require('.')
+const { cli } = require('.')
 
-cratos(process.argv)
+cli(process.argv)
