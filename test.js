@@ -346,15 +346,13 @@ describe('cratos', () => {
   })
 
   describe('findModules', () => {
-    beforeEach(async () => {
-      process.env.CRATOS_PATH = ''
-    })
     afterEach(async () => {
       await rimraf(pathResolve(__dirname, 'tmp'))
       process.env.CRATOS_PATH = ''
       process.env.HOME = HOME
     })
     it('finds modules in CRATOS_PATH', async () => {
+      process.env.HOME = ''
       process.env.CRATOS_PATH = `${pathResolve('tmp/a')}:${pathResolve('tmp/project')}`
       const projectPaths = [
         'tmp/project',
@@ -374,8 +372,8 @@ describe('cratos', () => {
       }
     })
     it('finds modules in HOME if no CRATOS PATH', async () => {
-      aok(!process.env.CRATOS_PATH)
       process.env.HOME = pathResolve('tmp')
+      process.env.CRATOS_PATH = ''
       const projectPaths = [
         'tmp/project',
         'tmp/a/project',
@@ -418,7 +416,7 @@ describe('cratos', () => {
         )
       }
     })
-    it('throws Error for no CRATOS_PATH nor HOME', async () => {
+    it('throws Error for no CRATOS_PATH, HOME, or --path', async () => {
       aok(!process.env.CRATOS_PATH)
       process.env.HOME = ''
       aok(!process.env.HOME)
