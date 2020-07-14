@@ -42,31 +42,29 @@ usage: cratos [--version] [-v] [--help] [-h] [--path=<path>] <command> [<args>]
 
 commands:
 
+Get status on projects
     list, ls                      list cratos modules
-
     branch, b                     get branch for cratos modules
+    status, s                     get status for cratos modules
 
-    s[tatus]                      get status for cratos modules
+Manage dependencies
+    install, i                    install registered dependencies
+    install, i --save, -s <mods>  install and register new dependencies
+    link, ln                      symlink everything
+    clean                         remove ignored and untracked files
 
-    ch[eckout] <branch>           checkout branch for relevant cratos modules
-
+Get and apply new updates
     fetch                         fetch remotes for cratos modules
+    merge                         merge remote into current branch
+    pull                          fetch+merge remote into current branch
 
-    merge                         merge remote into current branch for cratos modules
+Switch and create branches
+    ch[eckout] <branch>           switch to existing branch
+    ch[eckout] -b <branch>        switch to new branch
 
-    pull                          fetch+merge remote into current branch for cratos modules
-
-    push                          push current branch to remote for cratos modules
-
-    dist <major|minor|patch>      version bump && publish cratos modules, skip unchanged modules
-
-    clean                         remove ignored and untracked files for cratos modules
-
-    i[nstall]                     install cratos module dependencies into local node_modules
-
-    i[nstall] --save, -s <mod>    install and save mod into cratos module dependencies modify package.json
-
-    link, ln                      symlink cratos modules into all other cratos modules\' local node_modules
+Release
+    push                          push current branches to remote
+    dist <major|minor|patch>      bump version and publish
 `.trimStart()
 //     test <path|module>            run module tests defined by test script or mocha at module root
 //     run <script> <path|module>    run module script
