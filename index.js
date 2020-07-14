@@ -42,7 +42,7 @@ usage: cratos [--version] [-v] [--help] [-h] [--path=<path>] <command> [<args>]
 
 commands:
 
-Get status on projects
+Get status
     list, ls                      list cratos modules
     branch, b                     get branch for cratos modules
     status, s                     get status for cratos modules
@@ -53,12 +53,12 @@ Manage dependencies
     link, ln                      symlink everything
     clean                         remove ignored and untracked files
 
-Get and apply new updates
+Get updates
     fetch                         fetch remotes for cratos modules
     merge                         merge remote into current branch
     pull                          fetch+merge remote into current branch
 
-Switch and create branches
+Switch branches
     ch[eckout] <branch>           switch to existing branch
     ch[eckout] -b <branch>        switch to new branch
 
