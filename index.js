@@ -53,17 +53,17 @@ Manage dependencies
     link, ln                      symlink everything
     clean                         remove ignored and untracked files
 
-Get updates
+Sync remotes
     fetch                         fetch remotes for cratos modules
     merge                         merge remote into current branch
     pull                          fetch+merge remote into current branch
+    push                          push current branches to remote
 
 Switch branches
     ch[eckout] <branch>           switch to existing branch
     ch[eckout] -b <branch>        switch to new branch
 
 Release
-    push                          push current branches to remote
     dist <major|minor|patch>      bump version and publish
 `.trimStart()
 //     test <path|module>            run module tests defined by test script or mocha at module root
