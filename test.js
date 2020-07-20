@@ -241,9 +241,8 @@ describe('cratos', () => {
     it('gets output of git status --short --porcelain for path', async () => {
       await createProject('tmp/project')
       await createFileFromString('tmp/project/hey', 'hey')
-      const y = cratos.getGitStatus('tmp/project')
-      aok(y instanceof Promise)
-      ade(await y, {
+      const y = await cratos.getGitStatus('tmp/project')
+      ade(y, {
         branch: '## No commits yet on master',
         files: ['?? hey', '?? index.js', '?? package.json'],
         fileNames: ['hey', 'index.js', 'package.json'],
@@ -274,9 +273,8 @@ describe('cratos', () => {
     ])
     it('gets info about a module', async () => {
       await createProject('tmp/project')
-      const y = cratos.getModuleInfo('tmp/project')
-      aok(y instanceof Promise)
-      ade(Object.keys(await y).length, infoFields.size)
+      const y = await cratos.getModuleInfo('tmp/project')
+      ade(Object.keys(y).length, infoFields.size)
       for (const field in await y) {
         aok(infoFields.has(field))
       }
@@ -305,9 +303,7 @@ describe('cratos', () => {
       ]
       await map(createProject)(projectPaths)
       await createEmptyProject('tmp/empty')
-      const yPromise = cratos.findModulePaths({ arguments: [], flags: [] })
-      aok(yPromise instanceof Promise)
-      const y = await yPromise
+      const y = await cratos.findModulePaths({ arguments: [], flags: [] })
       ade(y.length, projectPaths.length)
       for (const path of projectPaths) {
         aok(
