@@ -3,6 +3,7 @@ const trace = require('rubico/x/trace')
 const execa = require('execa')
 const nodePath = require('path')
 const fs = require('fs')
+const USAGE = require('./USAGE')
 const cratosPackageJSON = require('./package.json')
 
 const {
@@ -42,39 +43,7 @@ const includes = value => arr => arr.includes(value)
 
 const isEmpty = x => x.length === 0
 
-const USAGE = `
-usage: cratos [--version] [-v] [--help] [-h] [--path=<path>] <command> [<args>]
-
-commands:
-
-Get status
-    list, ls                      list cratos modules
-    status, s                     get file status for cratos modules
-    branch, b                     get current branch for cratos modules
-    status-branch, sb             get file status and branch for cratos modules
-    lg                            get short git log for cratos modules
-
-Manage dependencies
-    install, i                    install registered dependencies
-    install, i --save, -s <mods>  install and register new dependencies
-    link, ln                      symlink dependencies
-    clean                         remove vendored dependencies and untracked files
-
-Sync remotes
-    fetch                         fetch remotes for cratos modules
-    merge                         merge remote into current branch
-    pull                          fetch+merge remote into current branch
-    push                          push current branches to remote
-
-Switch branches
-    ch[eckout] <branch>           switch to existing branch
-    ch[eckout] -b <branch>        switch to new branch
-
-Release
-    dist <major|minor|patch>      bump version and publish
-`.trimStart()
-//     test <path|module>            run module tests defined by test script or mocha at module root
-//     run <script> <path|module>    run module script
+const cratosVersion = 'v' + cratosPackageJSON.version
 
 const FLAGS = new Set([
   '-h', '--help',
@@ -232,7 +201,7 @@ const parsedFlagsGet = key => ({ parsedFlags }) => parsedFlags.get(key)
 //   arguments: [string],
 //   flags: [string],
 // } => modulePaths [string]
-const findModules = parsedArgv => pipe([
+const findModulePaths = parsedArgv => pipe([
   assign({ parsedFlags: parseFlags }),
   switchCase([
     parsedFlagsHas('path'), pipe([
@@ -254,14 +223,14 @@ const findModules = parsedArgv => pipe([
   flatMap(pipe([
     pathResolve,
     walkPathForModuleNames,
-    map(getModuleInfo),
   ])),
 ])(parsedArgv)
 
 // parsedArgv => ()
 const commandList = parsedArgv => pipe([
-  findModules,
+  findModulePaths,
   map(pipe([
+    getModuleInfo,
     fork([
       get('packageName'),
       get('packageVersion'),
@@ -273,8 +242,9 @@ const commandList = parsedArgv => pipe([
 
 // parsedArgv => ()
 const commandStatus = parsedArgv => pipe([
-  findModules,
+  findModulePaths,
   map(pipe([
+    getModuleInfo,
     ({ packageName, gitStatusFiles }) => map(pipe([
       file => [packageName, file].join(' '),
       trace,
@@ -284,8 +254,9 @@ const commandStatus = parsedArgv => pipe([
 
 // parsedArgv => ()
 const commandBranch = parsedArgv => pipe([
-  findModules,
+  findModulePaths,
   map(pipe([
+    getModuleInfo,
     fork([
       get('packageName'),
       get('gitCurrentBranch'),
@@ -297,8 +268,9 @@ const commandBranch = parsedArgv => pipe([
 
 // parsedArgv => ()
 const commandStatusBranch = parsedArgv => pipe([
-  findModules,
+  findModulePaths,
   map(pipe([
+    getModuleInfo,
     fork([
       get('packageName'),
       get('gitCurrentBranch'),
@@ -321,17 +293,17 @@ const isBaseCommand = ({ arguments }) => arguments.length === 0
 // string => parsedArgv => boolean
 const isCommand = cmd => ({ arguments }) => arguments[0] === cmd
 
-// parsedArgv => ()
+// parsedArgv => output string
 const switchCommand = parsedArgv => switchCase([
   or([
     hasFlag('--version'),
     hasFlag('-v'),
-  ]), log('v' + cratosPackageJSON.version),
+  ]), pipe([() => cratosVersion, trace]),
   or([
     hasFlag('--help'),
     hasFlag('-h'),
     isBaseCommand,
-  ]), log(USAGE),
+  ]), pipe([() => USAGE, trace]),
   or([
     isCommand('list'),
     isCommand('ls'),
@@ -348,7 +320,10 @@ const switchCommand = parsedArgv => switchCase([
     isCommand('status-branch'),
     isCommand('sb'),
   ]), commandStatusBranch,
-  log(x => `${x.arguments[0]} is not a cratos command\n${USAGE}`),
+  pipe([
+    x => `${x.arguments[0]} is not a cratos command\n${USAGE}`,
+    trace,
+  ]),
 ])(parsedArgv)
 
 // argv [string] => ()
@@ -360,13 +335,13 @@ const cli = argv => pipe([
 const cratos = {}
 
 cratos.cli = cli
-cratos.getUsage = () => USAGE + '\n'
+cratos.getUsage = () => USAGE
 cratos.parseArgv = parseArgv
 cratos.walkPathForModuleNames = walkPathForModuleNames
 cratos.getPackageJSON = getPackageJSON
 cratos.getGitStatus = getGitStatus
 cratos.getModuleInfo = getModuleInfo
-cratos.findModules = findModules
+cratos.findModulePaths = findModulePaths
 cratos.switchCommand = switchCommand
 
 module.exports = cratos

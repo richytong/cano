@@ -6,6 +6,7 @@ const util = require('util')
 const fs = require('fs')
 const rimrafCb = require('rimraf')
 const cratos = require('.')
+const USAGE = require('./USAGE')
 const { version: cratosVersion } = require('./package.json')
 
 const { inspect, promisify } = util
@@ -354,7 +355,7 @@ describe('cratos', () => {
     })
   })
 
-  describe('findModules', () => {
+  describe('findModulePaths', () => {
     afterEach(async () => {
       await rimraf(pathResolve(__dirname, 'tmp'))
       process.env.CRATOS_PATH = ''
@@ -370,13 +371,13 @@ describe('cratos', () => {
       ]
       await map(pathToProject)(projectPaths)
       await pathToEmpty('tmp/empty')
-      const y = cratos.findModules({ arguments: [], flags: [] })
+      const y = cratos.findModulePaths({ arguments: [], flags: [] })
       aok(y instanceof Promise)
       const output = await y
       ade(output.length, projectPaths.length)
       for (const path of projectPaths) {
         aok(
-          isDefined(output.find(module => module.path === pathResolve(path)))
+          isDefined(output.find(modulePath => modulePath === pathResolve(path)))
         )
       }
     })
@@ -390,14 +391,14 @@ describe('cratos', () => {
       ]
       await map(pathToProject)(projectPaths)
       await pathToEmpty('tmp/empty')
-      const [y, stdout] = await captureStdout(cratos.findModules)({ flags: [], arguments: [] })
+      const [y, stdout] = await captureStdout(cratos.findModulePaths)({ flags: [], arguments: [] })
       ade(stdout, '[WARNING] CRATOS_PATH not set; finding modules from HOME\n')
       aok(y instanceof Promise)
       const output = await y
       ade(output.length, projectPaths.length)
       for (const path of projectPaths) {
         aok(
-          isDefined(output.find(module => module.path === pathResolve(path)))
+          isDefined(output.find(modulePath => modulePath === pathResolve(path)))
         )
       }
     })
@@ -411,8 +412,8 @@ describe('cratos', () => {
       ]
       await map(pathToProject)(projectPaths)
       await pathToEmpty('tmp/empty')
-      cratos.findModules({ flags: ['--path=tmp'], arguments: [] })
-      const [y, stdout] = await captureStdout(cratos.findModules)({
+      cratos.findModulePaths({ flags: ['--path=tmp'], arguments: [] })
+      const [y, stdout] = await captureStdout(cratos.findModulePaths)({
         flags: ['--path=tmp'],
         arguments: [],
       })
@@ -421,7 +422,7 @@ describe('cratos', () => {
       ade(output.length, projectPaths.length)
       for (const path of projectPaths) {
         aok(
-          isDefined(output.find(module => module.path === pathResolve(path)))
+          isDefined(output.find(modulePath => modulePath === pathResolve(path)))
         )
       }
     })
@@ -430,7 +431,7 @@ describe('cratos', () => {
       process.env.HOME = ''
       aok(!process.env.HOME)
       assert.throws(
-        () => cratos.findModules({ flags: [], arguments: [] }),
+        () => cratos.findModulePaths({ flags: [], arguments: [] }),
         new Error('no entrypoint found; CRATOS_PATH or HOME environment variables required'),
       )
     })
@@ -446,7 +447,14 @@ describe('cratos', () => {
     })
     it('cratos', async () => {
       ade(
-        cratos.getUsage(),
+        USAGE,
+        cratos.switchCommand({
+          arguments: [],
+          flags: [],
+        }),
+      )
+      ade(
+        USAGE + '\n',
         captureStdout(cratos.switchCommand)({
           arguments: [],
           flags: [],
@@ -455,7 +463,14 @@ describe('cratos', () => {
     })
     it('cratos -h', async () => {
       ade(
-        cratos.getUsage(),
+        USAGE,
+        cratos.switchCommand({
+          arguments: [],
+          flags: ['-h'],
+        }),
+      )
+      ade(
+        USAGE + '\n',
         captureStdout(cratos.switchCommand)({
           arguments: [],
           flags: ['-h'],
@@ -464,7 +479,14 @@ describe('cratos', () => {
     })
     it('cratos --help', async () => {
       ade(
-        cratos.getUsage(),
+        USAGE,
+        cratos.switchCommand({
+          arguments: [],
+          flags: ['--help'],
+        }),
+      )
+      ade(
+        USAGE + '\n',
         captureStdout(cratos.switchCommand)({
           arguments: [],
           flags: ['--help'],
@@ -659,7 +681,14 @@ describe('cratos', () => {
     })
     it('cratos unknown', async () => {
       ade(
-        `unknown is not a cratos command\n${cratos.getUsage()}`,
+        `unknown is not a cratos command\n${USAGE}`,
+        cratos.switchCommand({
+          arguments: ['unknown'],
+          flags: [],
+        }),
+      )
+      ade(
+        `unknown is not a cratos command\n${USAGE}\n`,
         captureStdout(cratos.switchCommand)({
           arguments: ['unknown'],
           flags: [],
