@@ -166,9 +166,9 @@ describe('cratos', () => {
         cratos.parseArgv(['node', 'cratos', '--help']),
       )
     })
-    it('cratos --unrecognied', async () => {
+    it('cratos --unrecognized', async () => {
       ade({ arguments: [], flags: [] },
-        cratos.parseArgv(['node', 'cratos', '--unrecognied']),
+        cratos.parseArgv(['node', 'cratos', '--unrecognized']),
       )
     })
     it('cratos some-command', async () => {
@@ -303,6 +303,7 @@ describe('cratos', () => {
       ade(await y, {
         branch: '## No commits yet on master',
         files: ['?? hey', '?? package.json'],
+        fileNames: ['hey', 'package.json'],
       })
     })
     it('throws Error on invalid path', async () => {
@@ -326,7 +327,7 @@ describe('cratos', () => {
     })
     const infoFields = new Set([
       'path', 'packageName', 'packageVersion',
-      'gitStatusBranch', 'gitStatusFiles',
+      'gitStatusBranch', 'gitStatusFiles', 'gitStatusFileNames',
     ])
     it('gets info about a module', async () => {
       await pathToProject('tmp/project')

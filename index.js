@@ -20,7 +20,12 @@ const pathResolve = nodePath.resolve
 
 const isDefined = x => typeof x !== 'undefined' && x !== null
 
+const split = delim => s => s.split(delim)
+
 const last = arr => get(arr.length - 1)(arr)
+
+// string => string
+const lastWord = pipe([split(' '), last])
 
 const slice = (from, to) => arr => arr.slice(
   from,
@@ -35,8 +40,6 @@ const includes = value => arr => arr.includes(value)
 
 const isEmpty = x => x.length === 0
 
-const split = delim => s => s.split(delim)
-
 const USAGE = `
 usage: cratos [--version] [-v] [--help] [-h] [--path=<path>] <command> [<args>]
 
@@ -44,14 +47,16 @@ commands:
 
 Get status
     list, ls                      list cratos modules
-    branch, b                     get branch for cratos modules
-    status, s                     get status for cratos modules
+    status, s                     get file status for cratos modules
+    branch, b                     get current branch for cratos modules
+    sb                            get file status and branch for cratos modules
+    lg                            get short git log for cratos modules
 
 Manage dependencies
     install, i                    install registered dependencies
     install, i --save, -s <mods>  install and register new dependencies
-    link, ln                      symlink everything
-    clean                         remove ignored and untracked files
+    link, ln                      symlink dependencies
+    clean                         remove vendored dependencies and untracked files
 
 Sync remotes
     fetch                         fetch remotes for cratos modules
@@ -171,6 +176,9 @@ const getGitStatus = pathArg => pipe([
     branch: get(0),
     files: slice(1),
   }),
+  assign({
+    fileNames: ({ files }) => map(lastWord)(files),
+  }),
 ])(pathArg)
 
 /* path string => cratosModule {
@@ -195,13 +203,11 @@ const getModuleInfo = pathArg => pipe([
       s => s.slice(3),
     ]),
     gitStatusFiles: get('gitStatus.files'),
+    gitStatusFileNames: get('gitStatus.fileNames'),
   }),
 ])(pathArg)
 
-const logWithLevel = level => (...args) => tap(x => console.log(
-  level,
-  ...args.map(arg => typeof arg === 'function' ? arg(x) : arg),
-))
+const logWithLevel = level => (...args) => console.log(level, ...args)
 
 const logger = {
   warn: logWithLevel('[WARNING]'),
@@ -233,14 +239,16 @@ const findModules = parsedArgv => pipe([
     ]),
     hasEnvVar('CRATOS_PATH'), getEnvVar('CRATOS_PATH'),
     hasEnvVar('HOME'), pipe([
-      logger.warn('CRATOS_PATH not set; finding modules from HOME'),
+      tap(() => {
+        logger.warn('CRATOS_PATH not set; finding modules from HOME')
+      }),
       getEnvVar('HOME'),
     ]),
     () => {
       throw new Error('no entrypoint found; CRATOS_PATH or HOME environment variables required')
     },
   ]),
-  maybeDelimitedPath => maybeDelimitedPath.split(':'),
+  split(':'),
   flatMap(pipe([
     pathResolve,
     walkPathForModuleNames,
@@ -285,6 +293,23 @@ const commandBranch = parsedArgv => pipe([
   ])),
 ])(parsedArgv)
 
+// parsedArgv => ()
+const commandStatusBranch = parsedArgv => pipe([
+  findModules,
+  map(pipe([
+    fork([
+      get('packageName'),
+      get('gitStatusBranch'),
+      pipe([
+        get('gitStatusFiles'),
+        files => files.join(','),
+      ]),
+    ]),
+    fields => fields.join(' '),
+    trace,
+  ])),
+])(parsedArgv)
+
 // string => parsedArgv => boolean
 const hasFlag = flag => ({ flags }) => flags.includes(flag)
 
@@ -317,6 +342,7 @@ const switchCommand = parsedArgv => switchCase([
     isCommand('branch'),
     isCommand('b'),
   ]), commandBranch,
+  isCommand('sb'), commandStatusBranch,
   log(x => `${x.arguments[0]} is not a cratos command\n${USAGE}`),
 ])(parsedArgv)
 
