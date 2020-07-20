@@ -22,6 +22,8 @@ const isDefined = x => typeof x !== 'undefined' && x !== null
 
 const split = delim => s => s.split(delim)
 
+const join = delim => arr => arr.join(delim)
+
 const last = arr => get(arr.length - 1)(arr)
 
 // string => string
@@ -49,7 +51,7 @@ Get status
     list, ls                      list cratos modules
     status, s                     get file status for cratos modules
     branch, b                     get current branch for cratos modules
-    sb                            get file status and branch for cratos modules
+    status-branch, sb             get file status and branch for cratos modules
     lg                            get short git log for cratos modules
 
 Manage dependencies
@@ -184,7 +186,7 @@ const getGitStatus = pathArg => pipe([
 /* path string => cratosModule {
  *   packageName: string,
  *   packageVersion: string,
- *   gitStatusBranch: [string],
+ *   gitCurrentBranch: [string],
  *   gitStatusFiles: [string],
  * }
  */
@@ -198,7 +200,7 @@ const getModuleInfo = pathArg => pipe([
     path: get('path'),
     packageName: get('packageJSON.name'),
     packageVersion: get('packageJSON.version'),
-    gitStatusBranch: pipe([
+    gitCurrentBranch: pipe([
       get('gitStatus.branch'),
       s => s.slice(3),
     ]),
@@ -286,7 +288,7 @@ const commandBranch = parsedArgv => pipe([
   map(pipe([
     fork([
       get('packageName'),
-      get('gitStatusBranch'),
+      get('gitCurrentBranch'),
     ]),
     fields => fields.join(' '),
     trace,
@@ -299,13 +301,13 @@ const commandStatusBranch = parsedArgv => pipe([
   map(pipe([
     fork([
       get('packageName'),
-      get('gitStatusBranch'),
+      get('gitCurrentBranch'),
       pipe([
-        get('gitStatusFiles'),
-        files => files.join(','),
+        get('gitStatusFileNames'),
+        join(','),
       ]),
     ]),
-    fields => fields.join(' '),
+    join(' '),
     trace,
   ])),
 ])(parsedArgv)
@@ -342,7 +344,10 @@ const switchCommand = parsedArgv => switchCase([
     isCommand('branch'),
     isCommand('b'),
   ]), commandBranch,
-  isCommand('sb'), commandStatusBranch,
+  or([
+    isCommand('status-branch'),
+    isCommand('sb'),
+  ]), commandStatusBranch,
   log(x => `${x.arguments[0]} is not a cratos command\n${USAGE}`),
 ])(parsedArgv)
 

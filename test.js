@@ -110,10 +110,18 @@ const git = (args, path) => execa('git', [
 const createProjectFixture = path => fork.series([
   path => fs.promises.mkdir(pathResolve(path), { recursive: true }),
   path => git(['init'], pathResolve(path)),
-  path => fs.promises.writeFile(
-    pathResolve(path, 'package.json'),
-    JSON.stringify({ name: 'ayo', version: '0.0.1' }, null, 2),
-  ),
+  fork([
+    path => fs.promises.writeFile(
+      pathResolve(path, 'package.json'),
+      JSON.stringify({ name: 'ayo', version: '0.0.1' }, null, 2),
+    ),
+    path => fs.promises.writeFile(
+      pathResolve(path, 'index.js'),
+      `
+module.exports = {}
+`.trimStart(),
+    ),
+  ]),
 ])(path)
 
 const createEmptyProjectFixture = path => fs.promises.mkdir(path, { recursive: true })
@@ -302,8 +310,8 @@ describe('cratos', () => {
       aok(y instanceof Promise)
       ade(await y, {
         branch: '## No commits yet on master',
-        files: ['?? hey', '?? package.json'],
-        fileNames: ['hey', 'package.json'],
+        files: ['?? hey', '?? index.js', '?? package.json'],
+        fileNames: ['hey', 'index.js', 'package.json'],
       })
     })
     it('throws Error on invalid path', async () => {
@@ -327,7 +335,7 @@ describe('cratos', () => {
     })
     const infoFields = new Set([
       'path', 'packageName', 'packageVersion',
-      'gitStatusBranch', 'gitStatusFiles', 'gitStatusFileNames',
+      'gitCurrentBranch', 'gitStatusFiles', 'gitStatusFileNames',
     ])
     it('gets info about a module', async () => {
       await pathToProject('tmp/project')
@@ -533,8 +541,11 @@ describe('cratos', () => {
         arguments: ['status'],
         flags: [],
       }))[1], [
+        'ayo ?? index.js',
         'ayo ?? package.json',
+        'ayo ?? index.js',
         'ayo ?? package.json',
+        'ayo ?? index.js',
         'ayo ?? package.json',
       ].join('\n') + '\n')
     })
@@ -554,8 +565,11 @@ describe('cratos', () => {
         arguments: ['s'],
         flags: [],
       }))[1], [
+        'ayo ?? index.js',
         'ayo ?? package.json',
+        'ayo ?? index.js',
         'ayo ?? package.json',
+        'ayo ?? index.js',
         'ayo ?? package.json',
       ].join('\n') + '\n')
     })
@@ -606,6 +620,42 @@ describe('cratos', () => {
         arguments: ['b'],
         flags: [],
       }))[1], '')
+    })
+    it('cratos status-branch; get git file status and current branch', async () => {
+      await map(pathToProject)([
+        'tmp/a/project',
+        'tmp/b/c/project',
+        'tmp/project',
+      ])
+      ade(
+        (await captureStdout(cratos.switchCommand)({
+          arguments: ['status-branch'],
+          flags: [],
+        }))[1],
+        [
+          'ayo No commits yet on master index.js,package.json',
+          'ayo No commits yet on master index.js,package.json',
+          'ayo No commits yet on master index.js,package.json',
+        ].join('\n') + '\n',
+      )
+    })
+    it('cratos sb; alias for status-branch', async () => {
+      await map(pathToProject)([
+        'tmp/a/project',
+        'tmp/b/c/project',
+        'tmp/project',
+      ])
+      ade(
+        (await captureStdout(cratos.switchCommand)({
+          arguments: ['sb'],
+          flags: [],
+        }))[1],
+        [
+          'ayo No commits yet on master index.js,package.json',
+          'ayo No commits yet on master index.js,package.json',
+          'ayo No commits yet on master index.js,package.json',
+        ].join('\n') + '\n',
+      )
     })
     it('cratos unknown', async () => {
       ade(
