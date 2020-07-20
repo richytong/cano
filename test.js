@@ -127,12 +127,12 @@ module.exports = {}
 
 const createEmptyProjectFixture = path => fs.promises.mkdir(path, { recursive: true })
 
-const pathToProject = pipe([
+const createProject = pipe([
   glob => pathResolve(__dirname, glob),
   createProjectFixture,
 ])
 
-const pathToEmpty = pipe([
+const createEmptyProject = pipe([
   glob => pathResolve(__dirname, glob),
   createEmptyProjectFixture,
 ])
@@ -207,86 +207,20 @@ describe('cratos', () => {
     })
   })
 
-  describe('walkPathForModuleNames', () => {
-    afterEach(async () => {
-      await rimraf(pathResolve(__dirname, 'tmp'))
-    })
-    it('one valid project', async () => {
-      await pathToProject('tmp/project')
-      ade(
-        await cratos.walkPathForModuleNames(pathResolve(__dirname, 'tmp')),
-        [pathResolve(__dirname, 'tmp/project')],
-      )
-    })
-    it('multiple valid projects', async () => {
-      await map(pathToProject)([
-        'tmp/project',
-        'tmp/a/project',
-        'tmp/b/c/project',
-      ])
-      ade(
-        await cratos.walkPathForModuleNames(pathResolve(__dirname, 'tmp')),
-        [
-          pathResolve(__dirname, 'tmp/a/project'),
-          pathResolve(__dirname, 'tmp/b/c/project'),
-          pathResolve(__dirname, 'tmp/project'),
-        ],
-      )
-    })
-    it('empty', async () => {
-      await pathToEmpty('tmp/')
-      ade(
-        await cratos.walkPathForModuleNames(pathResolve(__dirname, 'tmp')),
-        [],
-      )
-    })
-    it('ignores .git and node_modules', async () => {
-      await map(pathToProject)([
-        'tmp/.git/',
-        'tmp/a/b/.git/',
-        'tmp/node_modules/',
-        'tmp/a/b/c/node_modules/',
-      ])
-      ade(
-        await cratos.walkPathForModuleNames(pathResolve(__dirname, 'tmp')),
-        [],
-      )
-    })
-    it('bunch of cases', async () => {
-      await map(pathToProject)([
-        'tmp/project',
-        'tmp/project/sub/project',
-        'tmp/a/b/c/d/project',
-      ])
-      await map(pathToEmpty)([
-        'tmp/empty',
-        'tmp/a/b/c/d/empty',
-      ])
-      ade(
-        await cratos.walkPathForModuleNames(pathResolve(__dirname, 'tmp')),
-        [
-          pathResolve(__dirname, 'tmp/a/b/c/d/project'),
-          pathResolve(__dirname, 'tmp/project'),
-        ],
-      )
-    })
-  })
-
   describe('getPackageJSON', () => {
     afterEach(async () => {
       await rimraf(pathResolve(__dirname, 'tmp'))
     })
     it('reads and parses package.json for path', async () => {
-      await pathToProject('tmp/project')
-      const y = cratos.getPackageJSON('tmp/project')
-      aok(y instanceof Promise)
-      ade(await y, {
+      await createProject('tmp/project')
+      const y = await cratos.getPackageJSON('tmp/project')
+      ade(y, {
         name: 'ayo',
         version: '0.0.1',
       })
     })
     it('throws Error on invalid path', async () => {
-      await pathToEmpty('tmp/empty')
+      await createEmptyProject('tmp/empty')
       assert.rejects(
         () => cratos.getPackageJSON('tmp/empty'),
         new Error(`ENOENT: no such file or directory, open '${pathResolve('tmp/empty', 'package.json')}'`),
@@ -305,7 +239,7 @@ describe('cratos', () => {
       await rimraf(pathResolve(__dirname, 'tmp'))
     })
     it('gets output of git status --short --porcelain for path', async () => {
-      await pathToProject('tmp/project')
+      await createProject('tmp/project')
       await createFileFromString('tmp/project/hey', 'hey')
       const y = cratos.getGitStatus('tmp/project')
       aok(y instanceof Promise)
@@ -316,7 +250,7 @@ describe('cratos', () => {
       })
     })
     it('throws Error on invalid path', async () => {
-      await pathToEmpty('tmp/empty')
+      await createEmptyProject('tmp/empty')
       assert.rejects(
         () => cratos.getGitStatus('tmp/empty'),
         new Error(`fatal: not a git repository: '${pathResolve('tmp/empty/.git')}'`),
@@ -339,7 +273,7 @@ describe('cratos', () => {
       'gitCurrentBranch', 'gitStatusFiles', 'gitStatusFileNames',
     ])
     it('gets info about a module', async () => {
-      await pathToProject('tmp/project')
+      await createProject('tmp/project')
       const y = cratos.getModuleInfo('tmp/project')
       aok(y instanceof Promise)
       ade(Object.keys(await y).length, infoFields.size)
@@ -369,8 +303,8 @@ describe('cratos', () => {
         'tmp/a/project',
         'tmp/a/b/c/project',
       ]
-      await map(pathToProject)(projectPaths)
-      await pathToEmpty('tmp/empty')
+      await map(createProject)(projectPaths)
+      await createEmptyProject('tmp/empty')
       const yPromise = cratos.findModulePaths({ arguments: [], flags: [] })
       aok(yPromise instanceof Promise)
       const y = await yPromise
@@ -389,10 +323,9 @@ describe('cratos', () => {
         'tmp/a/project',
         'tmp/a/b/c/project',
       ]
-      await map(pathToProject)(projectPaths)
-      await pathToEmpty('tmp/empty')
-      const [y, stdout] = await captureStdout(cratos.findModulePaths)({ flags: [], arguments: [] })
-      ade(stdout, '[WARNING] CRATOS_PATH not set; finding modules from HOME\n')
+      await map(createProject)(projectPaths)
+      await createEmptyProject('tmp/empty')
+      const y = await cratos.findModulePaths({ flags: [], arguments: [] })
       ade(y.length, projectPaths.length)
       for (const path of projectPaths) {
         aok(
@@ -408,8 +341,8 @@ describe('cratos', () => {
         'tmp/a/project',
         'tmp/a/b/c/project',
       ]
-      await map(pathToProject)(projectPaths)
-      await pathToEmpty('tmp/empty')
+      await map(createProject)(projectPaths)
+      await createEmptyProject('tmp/empty')
       cratos.findModulePaths({ flags: ['--path=tmp'], arguments: [] })
       const [y, stdout] = await captureStdout(cratos.findModulePaths)({
         flags: ['--path=tmp'],
@@ -508,7 +441,7 @@ describe('cratos', () => {
       )
     })
     it('cratos list; list cratos modules', async () => {
-      await map(pathToProject)([
+      await map(createProject)([
         'tmp/a/project',
         'tmp/b/c/project',
         'tmp/project',
@@ -529,7 +462,7 @@ describe('cratos', () => {
       }))[1], '')
     })
     it('cratos ls; list cratos modules', async () => {
-      await map(pathToProject)([
+      await map(createProject)([
         'tmp/a/project',
         'tmp/b/c/project',
         'tmp/project',
@@ -550,7 +483,7 @@ describe('cratos', () => {
       }))[1], '')
     })
     it('cratos status; get git status for cratos modules', async () => {
-      await map(pathToProject)([
+      await map(createProject)([
         'tmp/a/project',
         'tmp/b/c/project',
         'tmp/project',
@@ -574,7 +507,7 @@ describe('cratos', () => {
       }))[1], '')
     })
     it('cratos s; get git status for cratos modules', async () => {
-      await map(pathToProject)([
+      await map(createProject)([
         'tmp/a/project',
         'tmp/b/c/project',
         'tmp/project',
@@ -598,7 +531,7 @@ describe('cratos', () => {
       }))[1], '')
     })
     it('cratos branch; get git branch for cratos modules', async () => {
-      await map(pathToProject)([
+      await map(createProject)([
         'tmp/a/project',
         'tmp/b/c/project',
         'tmp/project',
@@ -619,7 +552,7 @@ describe('cratos', () => {
       }))[1], '')
     })
     it('cratos b; get git branch for cratos modules', async () => {
-      await map(pathToProject)([
+      await map(createProject)([
         'tmp/a/project',
         'tmp/b/c/project',
         'tmp/project',
@@ -640,7 +573,7 @@ describe('cratos', () => {
       }))[1], '')
     })
     it('cratos status-branch; get git file status and current branch', async () => {
-      await map(pathToProject)([
+      await map(createProject)([
         'tmp/a/project',
         'tmp/b/c/project',
         'tmp/project',
@@ -658,7 +591,7 @@ describe('cratos', () => {
       )
     })
     it('cratos sb; alias for status-branch', async () => {
-      await map(pathToProject)([
+      await map(createProject)([
         'tmp/a/project',
         'tmp/b/c/project',
         'tmp/project',

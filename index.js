@@ -337,7 +337,6 @@ const cratos = {}
 cratos.cli = cli
 cratos.getUsage = () => USAGE
 cratos.parseArgv = parseArgv
-cratos.walkPathForModuleNames = walkPathForModuleNames
 cratos.getPackageJSON = getPackageJSON
 cratos.getGitStatus = getGitStatus
 cratos.getModuleInfo = getModuleInfo
