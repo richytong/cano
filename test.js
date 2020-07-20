@@ -95,7 +95,7 @@ const captureStdout = f => x => {
   })(x)
   return isPromise(y) ? y.then(res => (
     process.stdout.write = writeStdout, // release stdout
-    [y, output]
+    [res, output]
   )) : (
     process.stdout.write = writeStdout, // release stdout
     [y, output]
@@ -371,13 +371,13 @@ describe('cratos', () => {
       ]
       await map(pathToProject)(projectPaths)
       await pathToEmpty('tmp/empty')
-      const y = cratos.findModulePaths({ arguments: [], flags: [] })
-      aok(y instanceof Promise)
-      const output = await y
-      ade(output.length, projectPaths.length)
+      const yPromise = cratos.findModulePaths({ arguments: [], flags: [] })
+      aok(yPromise instanceof Promise)
+      const y = await yPromise
+      ade(y.length, projectPaths.length)
       for (const path of projectPaths) {
         aok(
-          isDefined(output.find(modulePath => modulePath === pathResolve(path)))
+          isDefined(y.find(modulePath => modulePath === pathResolve(path)))
         )
       }
     })
@@ -393,12 +393,10 @@ describe('cratos', () => {
       await pathToEmpty('tmp/empty')
       const [y, stdout] = await captureStdout(cratos.findModulePaths)({ flags: [], arguments: [] })
       ade(stdout, '[WARNING] CRATOS_PATH not set; finding modules from HOME\n')
-      aok(y instanceof Promise)
-      const output = await y
-      ade(output.length, projectPaths.length)
+      ade(y.length, projectPaths.length)
       for (const path of projectPaths) {
         aok(
-          isDefined(output.find(modulePath => modulePath === pathResolve(path)))
+          isDefined(y.find(modulePath => modulePath === pathResolve(path)))
         )
       }
     })
@@ -417,12 +415,10 @@ describe('cratos', () => {
         flags: ['--path=tmp'],
         arguments: [],
       })
-      aok(y instanceof Promise)
-      const output = await y
-      ade(output.length, projectPaths.length)
+      ade(y.length, projectPaths.length)
       for (const path of projectPaths) {
         aok(
-          isDefined(output.find(modulePath => modulePath === pathResolve(path)))
+          isDefined(y.find(modulePath => modulePath === pathResolve(path)))
         )
       }
     })
