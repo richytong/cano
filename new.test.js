@@ -54,12 +54,26 @@ module.exports = {}
 const createEmptyDirectory = path => fs.promises.mkdir(path, { recursive: true })
 
 describe('cratos', () => {
-  before(() => {
+  beforeEach(() => {
     process.env.CRATOS_PATH = 'tmp'
   })
 
   afterEach(async () => {
     await rimraf('tmp')
+  })
+
+  it('responds with usage on invalid command', async () => {
+    ade(
+      cratos(['/usr/bin/node', '/usr/bin/cratos', 'hey']),
+      {
+        arguments: ['hey'],
+        flags: [],
+        command: {
+          type: 'INVALID_USAGE',
+          body: {},
+        },
+      },
+    )
   })
 
   it('responds with version on --version', async () => {
@@ -194,6 +208,32 @@ describe('cratos', () => {
     ])(['/usr/bin/node', '/usr/bin/cratos', 'ls'])
   })
 
+  it('ls, no env.CRATOS_PATH, has env.HOME', async () => {
+    delete process.env.CRATOS_PATH
+    process.env.HOME = 'tmp'
+    await map(
+      s => createProjectFixture(`tmp/${s}`, generatePackageJSON(s)),
+    )(['a', 'b', 'c'])
+    await pipe([
+      cratos,
+      x => {
+        ade(x.arguments, ['ls'])
+        ade(x.flags, [])
+        ase(x.command.type, 'LIST')
+        ase(x.command.body.modules.length, 3)
+      },
+    ])(['/usr/bin/node', '/usr/bin/cratos', 'ls'])
+  })
+
+  it('ls, no env.CRATOS_PATH, no env.HOME', async () => {
+    delete process.env.CRATOS_PATH
+    delete process.env.HOME
+    assert.throws(
+      () => cratos(['/usr/bin/node', '/usr/bin/cratos', 'ls']),
+      new Error('no entrypoint found; CRATOS_PATH or HOME environment variables required'),
+    )
+  })
+
   it('responds with status on status', async () => {
     await map(
       s => createProjectFixture(`tmp/${s}`, generatePackageJSON(s)),
@@ -222,19 +262,5 @@ describe('cratos', () => {
         ase(x.command.body.modules.length, 3)
       },
     ])(['node', 'cratos', 's'])
-  })
-
-  it('responds with usage on invalid command', async () => {
-    ade(
-      cratos(['/usr/bin/node', '/usr/bin/cratos', 'hey']),
-      {
-        arguments: ['hey'],
-        flags: [],
-        command: {
-          type: 'INVALID_USAGE',
-          body: {},
-        },
-      },
-    )
   })
 })
