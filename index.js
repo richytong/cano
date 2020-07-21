@@ -294,7 +294,7 @@ const isBaseCommand = ({ arguments }) => arguments.length === 0
 const isCommand = cmd => ({ arguments }) => arguments[0] === cmd
 
 // parsedArgv => output string
-const switchCommand = parsedArgv => switchCase([
+const switchCommand = switchCase([
   or([
     hasFlag('--version'),
     hasFlag('-v'),
@@ -324,18 +324,17 @@ const switchCommand = parsedArgv => switchCase([
     x => `${x.arguments[0]} is not a cratos command\n${USAGE}`,
     trace,
   ]),
-])(parsedArgv)
+])
 
 // argv [string] => ()
-const cli = argv => pipe([
+const cli = pipe([
   parseArgv,
   switchCommand,
-])(argv)
+])
 
 const cratos = {}
 
 cratos.cli = cli
-cratos.getUsage = () => USAGE
 cratos.parseArgv = parseArgv
 cratos.getPackageJSON = getPackageJSON
 cratos.getGitStatus = getGitStatus
