@@ -353,11 +353,10 @@ const command = {
  *   flags: [string],
  *   command: {
  *     type: string,
- *     body: oneOf([
- *       versionBody { version: string },
- *       emptyBody {},
- *       moduleBody { modules: [cratosModule] },
- *     ]),
+ *     body: {
+ *       version: string,
+ *       modules: [cratosModule],
+ *     },
  *   },
  * }
  *
@@ -368,6 +367,17 @@ const command = {
  *     type: 'VERSION',
  *     body: {
  *       version: string,
+ *     },
+ *   },
+ * }
+ *
+ * ['node', 'cratos', 'list'] => {
+ *   arguments: ['list'],
+ *   flags: [],
+ *   command: {
+ *     type: 'LIST',
+ *     body: {
+ *       modules: [cratosModule],
  *     },
  *   },
  * }
