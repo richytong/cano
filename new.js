@@ -134,17 +134,20 @@ const walkPathForModuleNames = pipe([
   }),
   switchCase([
     isCratosModule, ({ path }) => [path],
-    ({ path, dirents }) => transform(pipe([
-      filter(and([
-        not(isIgnoreDir),
-        dirent => dirent.isDirectory(),
-      ])),
-      flatMap(pipe([
-        get('name'),
-        dirName => pathResolve(path, dirName),
-        walkPathForModuleNames,
-      ])),
-    ]), () => [])(dirents),
+    ({ path, dirents }) => transform(
+      pipe([
+        filter(and([
+          not(isIgnoreDir),
+          dirent => dirent.isDirectory(),
+        ])),
+        flatMap(pipe([
+          get('name'),
+          dirName => pathResolve(path, dirName),
+          walkPathForModuleNames,
+        ])),
+      ]),
+      () => [],
+    )(dirents),
   ]),
 ])
 
