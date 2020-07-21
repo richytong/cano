@@ -7,7 +7,6 @@ Get status
     list, ls                      list cratos modules
     status, s                     get file status for cratos modules
     branch, b                     get current branch for cratos modules
-    status-branch, sb             get file status and branch for cratos modules
     lg                            get short git log for cratos modules
 
 Manage dependencies
