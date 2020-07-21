@@ -162,6 +162,9 @@ describe('cratos', () => {
     await map(
       s => createProjectFixture(`tmp/${s}`, generatePackageJSON(s)),
     )(['a', 'b', 'c'])
+    await map(
+      s => createEmptyDirectory(`tmp/${s}`)
+    )(['d', 'e', 'f'])
     await pipe([
       cratos,
       x => {
@@ -177,6 +180,9 @@ describe('cratos', () => {
     await map(
       s => createProjectFixture(`tmp/${s}`, generatePackageJSON(s)),
     )(['a', 'b', 'c'])
+    await map(
+      s => createEmptyDirectory(`tmp/${s}`)
+    )(['d', 'e', 'f'])
     await pipe([
       cratos,
       x => {
@@ -186,6 +192,36 @@ describe('cratos', () => {
         ase(x.command.body.modules.length, 3)
       },
     ])(['/usr/bin/node', '/usr/bin/cratos', 'ls'])
+  })
+
+  it('responds with status on status', async () => {
+    await map(
+      s => createProjectFixture(`tmp/${s}`, generatePackageJSON(s)),
+    )(['a', 'b', 'c'])
+    await pipe([
+      cratos,
+      x => {
+        ade(x.arguments, ['status'])
+        ade(x.flags, [])
+        ase(x.command.type, 'STATUS')
+        ase(x.command.body.modules.length, 3)
+      },
+    ])(['node', 'cratos', 'status'])
+  })
+
+  it('responds with status on s', async () => {
+    await map(
+      s => createProjectFixture(`tmp/${s}`, generatePackageJSON(s)),
+    )(['a', 'b', 'c'])
+    await pipe([
+      cratos,
+      x => {
+        ade(x.arguments, ['s'])
+        ade(x.flags, [])
+        ase(x.command.type, 'STATUS')
+        ase(x.command.body.modules.length, 3)
+      },
+    ])(['node', 'cratos', 's'])
   })
 
   it('responds with usage on invalid command', async () => {

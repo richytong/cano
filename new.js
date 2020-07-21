@@ -307,6 +307,41 @@ const command = {
       }),
     }),
   ]),
+
+  /*
+   * parsedArgv {
+   *   arguments: [string],
+   *   flags: [string],
+   * } => command {
+   *   type: 'STATUS',
+   *   body: {
+   *     modules: [cratosModule {
+   *       path: string,
+   *       packageName: string,
+   *       packageVersion: string,
+   *       gitCurrentBranch: [string],
+   *       gitStatusFiles: [string],
+   *       gitStatusFileNames: [string],
+   *     }]
+   *   },
+   * }
+   */
+  status: pipe([
+    findModulePaths,
+    fork({
+      type: () => 'STATUS',
+      body: fork({
+        modules: map(pipe([
+          getModuleInfo,
+          tap(({ packageName, gitStatusFiles }) => {
+            for (const file of gitStatusFiles) {
+              console.log(packageName, file)
+            }
+          }),
+        ])),
+      }),
+    }),
+  ]),
 }
 
 /*
@@ -351,6 +386,10 @@ const cratos = pipe([
         isCommand('list'),
         isCommand('ls'),
       ]), command.list,
+      or([
+        isCommand('status'),
+        isCommand('s'),
+      ]), command.status,
       x => {
         console.log(`${x.arguments[0]} is not a cratos command\n${USAGE}`)
         return {
