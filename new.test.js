@@ -62,53 +62,7 @@ describe('cratos', () => {
     await rimraf('tmp')
   })
 
-  it('responds with usage on invalid command', async () => {
-    ade(
-      cratos(['/usr/bin/node', '/usr/bin/cratos', 'hey']),
-      {
-        arguments: ['hey'],
-        flags: [],
-        command: {
-          type: 'INVALID_USAGE',
-          body: {},
-        },
-      },
-    )
-  })
-
-  it('responds with version on --version', async () => {
-    ade(
-      cratos(['node', 'cratos', '--version']),
-      {
-        arguments: [],
-        flags: ['--version'],
-        command: {
-          type: 'VERSION',
-          body: {
-            version: cratosPackageJSON.version,
-          },
-        },
-      },
-    )
-  })
-
-  it('responds with version on -v', async () => {
-    ade(
-      cratos(['node', 'cratos', '-v']),
-      {
-        arguments: [],
-        flags: ['-v'],
-        command: {
-          type: 'VERSION',
-          body: {
-            version: cratosPackageJSON.version,
-          },
-        },
-      },
-    )
-  })
-
-  it('responds with usage on base command', async () => {
+  it('base command', async () => {
     ade(
       cratos(['node', './cli.js']),
       {
@@ -133,7 +87,53 @@ describe('cratos', () => {
     )
   })
 
-  it('responds with usage on --help', async () => {
+  it('invalid command', async () => {
+    ade(
+      cratos(['/usr/bin/node', '/usr/bin/cratos', 'hey']),
+      {
+        arguments: ['hey'],
+        flags: [],
+        command: {
+          type: 'INVALID_USAGE',
+          body: {},
+        },
+      },
+    )
+  })
+
+  it('--version', async () => {
+    ade(
+      cratos(['node', 'cratos', '--version']),
+      {
+        arguments: [],
+        flags: ['--version'],
+        command: {
+          type: 'VERSION',
+          body: {
+            version: cratosPackageJSON.version,
+          },
+        },
+      },
+    )
+  })
+
+  it('-v', async () => {
+    ade(
+      cratos(['node', 'cratos', '-v']),
+      {
+        arguments: [],
+        flags: ['-v'],
+        command: {
+          type: 'VERSION',
+          body: {
+            version: cratosPackageJSON.version,
+          },
+        },
+      },
+    )
+  })
+
+  it('--help', async () => {
     ade(
       cratos(['/usr/bin/node', '/usr/bin/cratos', '--help']),
       {
@@ -147,7 +147,7 @@ describe('cratos', () => {
     )
   })
 
-  it('responds with usage on -h', async () => {
+  it('-h', async () => {
     ade(
       cratos(['/usr/bin/node', '/usr/bin/cratos', '-h']),
       {
@@ -172,7 +172,7 @@ describe('cratos', () => {
     version: `0.0.${s.charCodeAt(0)}`,
   })
 
-  it('responds with list on list', async () => {
+  it('list', async () => {
     await map(
       s => createProjectFixture(`tmp/${s}`, generatePackageJSON(s)),
     )(['a', 'b', 'c'])
@@ -190,7 +190,7 @@ describe('cratos', () => {
     ])(['/usr/bin/node', '/usr/bin/cratos', 'list'])
   })
 
-  it('responds with list on ls', async () => {
+  it('ls', async () => {
     await map(
       s => createProjectFixture(`tmp/${s}`, generatePackageJSON(s)),
     )(['a', 'b', 'c'])
@@ -208,7 +208,7 @@ describe('cratos', () => {
     ])(['/usr/bin/node', '/usr/bin/cratos', 'ls'])
   })
 
-  it('ls, no env.CRATOS_PATH, has env.HOME', async () => {
+  it('ls, no env.CRATOS_PATH, yes env.HOME', async () => {
     delete process.env.CRATOS_PATH
     process.env.HOME = 'tmp'
     await map(
@@ -234,7 +234,33 @@ describe('cratos', () => {
     )
   })
 
-  it('responds with status on status', async () => {
+  it('ls, --path=tmp', async () => {
+    delete process.env.CRATOS_PATH
+    delete process.env.HOME
+    await map(
+      s => createProjectFixture(`tmp/${s}`, generatePackageJSON(s)),
+    )(['a', 'b', 'c'])
+    await pipe([
+      cratos,
+      x => {
+        ade(x.arguments, ['ls'])
+        ade(x.flags, ['--path=tmp'])
+        ase(x.command.type, 'LIST')
+        ase(x.command.body.modules.length, 3)
+      },
+    ])(['/usr/bin/node', '/usr/bin/cratos', '--path=tmp', 'ls'])
+    await pipe([
+      cratos,
+      x => {
+        ade(x.arguments, ['ls'])
+        ade(x.flags, ['--path=tmp'])
+        ase(x.command.type, 'LIST')
+        ase(x.command.body.modules.length, 3)
+      },
+    ])(['/usr/bin/node', '/usr/bin/cratos', 'ls', '--path=tmp'])
+  })
+
+  it('status', async () => {
     await map(
       s => createProjectFixture(`tmp/${s}`, generatePackageJSON(s)),
     )(['a', 'b', 'c'])
@@ -249,7 +275,7 @@ describe('cratos', () => {
     ])(['node', 'cratos', 'status'])
   })
 
-  it('responds with status on s', async () => {
+  it('s', async () => {
     await map(
       s => createProjectFixture(`tmp/${s}`, generatePackageJSON(s)),
     )(['a', 'b', 'c'])
