@@ -224,7 +224,7 @@ const getModuleInfo = pipe([
     packageVersion: get('packageJSON.version', '0.0.0'),
     gitCurrentBranch: pipe([
       get('gitStatus.branch'),
-      s => s.slice(3),
+      s => s.slice(3), // ##\ 
     ]),
     gitStatusFiles: get('gitStatus.files'),
     gitStatusFileNames: get('gitStatus.fileNames'),
