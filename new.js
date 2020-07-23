@@ -59,14 +59,14 @@ const cleanArgv = slice(2)
 
 /*
  * argv [string] => parsedArgv {
- *   arguments: [string],
+ *   args: [string],
  *   flags: [string],
  * }
  */
 const parseArgv = pipe([
   cleanArgv,
   fork({
-    arguments: filter(not(startsWith('-'))),
+    args: filter(not(startsWith('-'))),
     flags: filter(startsWith('-')),
   }),
 ])
@@ -85,7 +85,7 @@ const parseFlags = ({ flags }) => transform(
 
 /*
  * parsedArgv {
- *   arguments: [string],
+ *   args: [string],
  *   flags: [string],
  * } => entryPath string
  */
@@ -153,7 +153,7 @@ const walkPathForModuleNames = pipe([
 
 /*
  * parsedArgv {
- *   arguments: [string],
+ *   args: [string],
  *   flags: [string],
  * } => modulePaths [string]
  */
@@ -234,11 +234,11 @@ const getModuleInfo = pipe([
 // flag string => parsedArgv { flags: [string] } => boolean
 const hasFlag = flag => ({ flags }) => flags.includes(flag)
 
-// parsedArgv { arguments: [string] } => boolean
-const isBaseCommand = ({ arguments: args }) => args.length === 0
+// parsedArgv { args: [string] } => boolean
+const isBaseCommand = ({ args }) => args.length === 0
 
-// string => parsedArgv { arguments: [string] } => boolean
-const isCommand = cmd => ({ arguments: args }) => args[0] === cmd
+// string => parsedArgv { args: [string] } => boolean
+const isCommand = cmd => ({ args }) => args[0] === cmd
 
 // replacement string => s string => replaced string
 const replaceHomeWith = replacement => s => s.replace(process.env.HOME, replacement)
@@ -280,7 +280,7 @@ const command = {
 
   /*
    * parsedArgv {
-   *   arguments: [string],
+   *   args: [string],
    *   flags: [string],
    * } => command {
    *   type: 'LIST',
@@ -313,7 +313,7 @@ const command = {
 
   /*
    * parsedArgv {
-   *   arguments: [string],
+   *   args: [string],
    *   flags: [string],
    * } => command {
    *   type: 'STATUS',
@@ -349,7 +349,7 @@ const command = {
 
 /*
  * argv [string] => {
- *   arguments: [string],
+ *   args: [string],
  *   flags: [string],
  *   command: {
  *     type: string,
@@ -361,7 +361,7 @@ const command = {
  * }
  *
  * ['node', 'cratos', '--version'] => {
- *   arguments: [],
+ *   args: [],
  *   flags: ['--version'],
  *   command: {
  *     type: 'VERSION',
@@ -372,7 +372,7 @@ const command = {
  * }
  *
  * ['node', 'cratos', 'list'] => {
- *   arguments: ['list'],
+ *   args: ['list'],
  *   flags: [],
  *   command: {
  *     type: 'LIST',
@@ -404,7 +404,7 @@ const cratos = pipe([
         isCommand('s'),
       ]), command.status,
       x => {
-        console.log(`${x.arguments[0]} is not a cratos command\n${USAGE}`)
+        console.log(`${x.args[0]} is not a cratos command\n${USAGE}`)
         return {
           type: 'INVALID_USAGE',
           body: {},

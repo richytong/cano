@@ -66,7 +66,7 @@ describe('cratos', () => {
     ade(
       cratos(['node', './cli.js']),
       {
-        arguments: [],
+        args: [],
         flags: [],
         command: {
           type: 'USAGE',
@@ -77,7 +77,7 @@ describe('cratos', () => {
     ade(
       cratos(['/usr/bin/node', '/usr/bin/cratos', '--yo']),
       {
-        arguments: [],
+        args: [],
         flags: ['--yo'],
         command: {
           type: 'USAGE',
@@ -91,7 +91,7 @@ describe('cratos', () => {
     ade(
       cratos(['/usr/bin/node', '/usr/bin/cratos', 'hey']),
       {
-        arguments: ['hey'],
+        args: ['hey'],
         flags: [],
         command: {
           type: 'INVALID_USAGE',
@@ -105,7 +105,7 @@ describe('cratos', () => {
     ade(
       cratos(['node', 'cratos', '--version']),
       {
-        arguments: [],
+        args: [],
         flags: ['--version'],
         command: {
           type: 'VERSION',
@@ -121,7 +121,7 @@ describe('cratos', () => {
     ade(
       cratos(['node', 'cratos', '-v']),
       {
-        arguments: [],
+        args: [],
         flags: ['-v'],
         command: {
           type: 'VERSION',
@@ -137,7 +137,7 @@ describe('cratos', () => {
     ade(
       cratos(['/usr/bin/node', '/usr/bin/cratos', '--help']),
       {
-        arguments: [],
+        args: [],
         flags: ['--help'],
         command: {
           type: 'USAGE',
@@ -151,7 +151,7 @@ describe('cratos', () => {
     ade(
       cratos(['/usr/bin/node', '/usr/bin/cratos', '-h']),
       {
-        arguments: [],
+        args: [],
         flags: ['-h'],
         command: {
           type: 'USAGE',
@@ -182,7 +182,7 @@ describe('cratos', () => {
     await pipe([
       cratos,
       x => {
-        ade(x.arguments, ['list'])
+        ade(x.args, ['list'])
         ade(x.flags, [])
         ase(x.command.type, 'LIST')
         ase(x.command.body.modules.length, 3)
@@ -200,7 +200,7 @@ describe('cratos', () => {
     await pipe([
       cratos,
       x => {
-        ade(x.arguments, ['ls'])
+        ade(x.args, ['ls'])
         ade(x.flags, [])
         ase(x.command.type, 'LIST')
         ase(x.command.body.modules.length, 3)
@@ -217,7 +217,7 @@ describe('cratos', () => {
     await pipe([
       cratos,
       x => {
-        ade(x.arguments, ['ls'])
+        ade(x.args, ['ls'])
         ade(x.flags, [])
         ase(x.command.type, 'LIST')
         ase(x.command.body.modules.length, 3)
@@ -243,7 +243,7 @@ describe('cratos', () => {
     await pipe([
       cratos,
       x => {
-        ade(x.arguments, ['ls'])
+        ade(x.args, ['ls'])
         ade(x.flags, ['--path=tmp'])
         ase(x.command.type, 'LIST')
         ase(x.command.body.modules.length, 3)
@@ -252,7 +252,7 @@ describe('cratos', () => {
     await pipe([
       cratos,
       x => {
-        ade(x.arguments, ['ls'])
+        ade(x.args, ['ls'])
         ade(x.flags, ['--path=tmp'])
         ase(x.command.type, 'LIST')
         ase(x.command.body.modules.length, 3)
@@ -267,7 +267,7 @@ describe('cratos', () => {
     await pipe([
       cratos,
       x => {
-        ade(x.arguments, ['status'])
+        ade(x.args, ['status'])
         ade(x.flags, [])
         ase(x.command.type, 'STATUS')
         ase(x.command.body.modules.length, 3)
@@ -282,7 +282,7 @@ describe('cratos', () => {
     await pipe([
       cratos,
       x => {
-        ade(x.arguments, ['s'])
+        ade(x.args, ['s'])
         ade(x.flags, [])
         ase(x.command.type, 'STATUS')
         ase(x.command.body.modules.length, 3)
