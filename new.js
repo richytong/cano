@@ -194,7 +194,7 @@ const getGitStatus = pipe([
   ),
   get('stdout'),
   stdout => stdout.split('\n'),
-  fork({
+  fork({ // ['## master...origin/master', ' M index.js', '?? tmp.js']
     branch: get(0),
     files: slice(1),
   }),
@@ -220,11 +220,11 @@ const getModuleInfo = pipe([
   }),
   fork({
     path: get('path'),
-    packageName: get('packageJSON.name', 'UNNAMED'),
-    packageVersion: get('packageJSON.version', '0.0.0'),
+    packageName: get('packageJSON.name', () => 'UNNAMED'),
+    packageVersion: get('packageJSON.version', () => '0.0.0'),
     gitCurrentBranch: pipe([
-      get('gitStatus.branch'),
-      s => s.slice(3), // ##\ 
+      get('gitStatus.branch'), // ## master...origin/master
+      s => s.slice(3),
     ]),
     gitStatusFiles: get('gitStatus.files'),
     gitStatusFileNames: get('gitStatus.fileNames'),
