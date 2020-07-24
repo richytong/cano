@@ -1,9 +1,9 @@
 const USAGE = `
-usage: cratos [command] [...arguments]
+usage: cratos <command> [<args>]
     --version, -v                 print version
     --help, -h                    print usage
     --path=<path>, -p <path>      specify entrypoint path
-    --grep=<pattern>              specify pattern for intended packages' names
+    --grep=<pattern>              filter for package names that match pattern
 
 commands:
 
@@ -12,8 +12,7 @@ Get info
     status, s                     get packages' file status
     branch, b                     get packages' branches
     log, lg                       get packages' commit history
-        -<number>                 limit number of commits per package
-        -n <number>
+        -<number>, -n <number>    number of commits to display per package
         --max-count=<number>
 
 Manage dependencies
@@ -28,11 +27,12 @@ Sync branches and remotes
     pull                          fetch+merge remote into current branch
     push                          push current branches to remote
 
-Switch branches
+Control versions
     checkout, ch <branch>         switch modules to existing branch, noop if non-existing branch
         -b                        switch modules to new branch, keep if existing branch
         -B                        switch modules to new branch, overwrite if existing branch
         --dry-run, -n             noop, showing output
+    delete <branch>               deletes branch from packages
 
 Release
     dist <major|minor|patch>      bump version and publish
