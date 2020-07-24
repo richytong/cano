@@ -1,5 +1,5 @@
 #!/usr/bin/env node
 
-const ryt = require('./new')
+const ryt = require('.')
 
 ryt(process.argv)
