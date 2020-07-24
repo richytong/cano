@@ -1,2 +1,2 @@
-# cratos
-🌋 hyperactive package management
+# ryt
+tooling for JavaScript workspaces

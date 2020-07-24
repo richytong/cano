@@ -1,18 +1,18 @@
 {
-  "name": "cratos",
-  "version": "0.0.1",
-  "description": "🌋 hyperactive package management",
+  "name": "ryt",
+  "version": "0.0.2",
+  "description": "tooling for JavaScript workspaces",
   "author": "Richard Tong",
   "license": "MIT",
   "main": "index.js",
   "bin": {
-    "cratos": "cli.js"
+    "ryt": "cli.js"
   },
   "repository": {
     "type": "git",
-    "url": "github:richytong/cratos"
+    "url": "github:richytong/ryt"
   },
-  "homepage": "https://github.com/richytong/cratos",
+  "homepage": "https://github.com/richytong/ryt",
   "keywords": [
     "devops",
     "toolchain",
