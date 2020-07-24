@@ -1,7 +1,7 @@
 const USAGE = `
 description: tooling for JavaScript workspaces
 
-usage: cratos <command> [<args>]
+usage: ryt <command> [<args>]
     --version, -v                 print version
     --help, -h                    print usage
     --path=<path>, -p <path>      specify entrypoint path

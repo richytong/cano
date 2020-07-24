@@ -1,11 +1,5 @@
 #!/usr/bin/env node
 
-/*
-const { cli } = require('.')
+const ryt = require('./new')
 
-cli(process.argv)
-*/
-
-const cratos = require('./new')
-
-cratos(process.argv)
+ryt(process.argv)

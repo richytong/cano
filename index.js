@@ -1,10 +1,14 @@
+'use strict'
+
 const rubico = require('rubico')
 const trace = require('rubico/x/trace')
+const tracef = require('rubico/x/tracef')
+const last = require('rubico/x/last')
 const execa = require('execa')
-const nodePath = require('path')
 const fs = require('fs')
+const nodePath = require('path')
 const USAGE = require('./USAGE')
-const cratosPackageJSON = require('./package.json')
+const rytPackageJSON = require('./package.json')
 
 const {
   pipe, fork, assign,
@@ -15,74 +19,98 @@ const {
   get, pick, omit,
 } = rubico
 
+// any => any
 const identity = x => x
 
+// string => string
 const pathResolve = nodePath.resolve
 
-const isDefined = x => typeof x !== 'undefined' && x !== null
+// (from number, to number) => arr [any] => slicedArr [any]
+const slice = (from, to) => arr => arr.slice(
+  from,
+  to,
+  // typeof to === 'undefined' ? undefined : to < 0 ? arr.length + to : to,
+)
 
+// string => [string]
 const split = delim => s => s.split(delim)
 
+// [any] => string
 const join = delim => arr => arr.join(delim)
 
-const last = arr => get(arr.length - 1)(arr)
+// value any => someArray [any] => boolean
+const includes = value => arr => arr.includes(value)
 
 // string => string
 const lastWord = pipe([split(' '), last])
 
-const slice = (from, to) => arr => arr.slice(
-  from,
-  typeof to === 'undefined' ? undefined : to === -1 ? arr.length - 1 : to,
-)
-
-const log = (...args) => x => tap(() => console.log(
-  ...args.map(arg => typeof arg === 'function' ? arg(x) : arg),
-))(x)
-
-const includes = value => arr => arr.includes(value)
-
-const isEmpty = x => x.length === 0
-
-const cratosVersion = 'v' + cratosPackageJSON.version
-
-const FLAGS = new Set([
-  '-h', '--help',
-  '-n', '--dry-run',
-  '-v', '--version',
-  '--path',
-])
-
-// string => boolean
-const isFlag = s => FLAGS.has(s.split('=')[0])
-
-// string => string => boolean
+// prefix string => s string => boolean
 const startsWith = prefix => s => s.startsWith(prefix)
 
-/* argv [string] => parsedArgv {
- *   arguments: [string],
+// level string => (args ...any) => ()
+const logWithLevel = level => (...args) => console.log(level, ...args)
+
+const logger = {
+  warn: logWithLevel('[WARNING]'),
+}
+
+// argv [string] => cleanedArgv [string]
+const cleanArgv = slice(2)
+
+/*
+ * argv [string] => parsedArgv {
+ *   args: [string],
  *   flags: [string],
  * }
  */
-const parseArgv = argv => fork({
-  arguments: pipe([
-    filter(and([
-      not(startsWith('-')),
-      not(isFlag),
-    ])),
-    slice(2), // node ./cli.js ...
+const parseArgv = pipe([
+  cleanArgv,
+  fork({
+    args: filter(not(startsWith('-'))),
+    flags: filter(startsWith('-')),
+  }),
+])
+
+// parsedArgv { flags: [string] } => parsedFlags Map { parsedFlag string -> flagValue string|boolean }
+const parseFlags = ({ flags }) => transform(
+  map(pipe([
+    flag => flag.split('='),
+    fork([
+      pipe([get(0), s => s.replace(/-/g, '')]),
+      get(1, true),
+    ]),
+  ])),
+  () => new Map(),
+)(flags)
+
+/*
+ * parsedArgv {
+ *   args: [string],
+ *   flags: [string],
+ * } => entryPath string
+ */
+const findEntryPath = pipe([
+  parseFlags,
+  switchCase([
+    flags => flags.has('path'), flags => flags.get('path'),
+    () => 'RYT_PATH' in process.env, () => process.env.RYT_PATH,
+    () => 'HOME' in process.env, pipe([
+      tap(() => {
+        logger.warn('RYT_PATH not set; finding modules from HOME')
+      }),
+      () => process.env.HOME,
+    ]),
+    () => {
+      throw new Error('no entrypoint found; RYT_PATH or HOME environment variables required')
+    },
   ]),
-  flags: filter(isFlag),
-})(argv)
-
-const hasEnvVar = name => () => !!process.env[name]
-
-const getEnvVar = name => () => process.env[name]
+])
 
 // Directory {
 //   path: string,
 //   dirents: [NodeDirent],
 // } => boolean
-const isCratosModule = ({ dirents }) => pipe([
+const isRytModule = ({ dirents }) => pipe([
   map(get('name')),
   and([
     includes('.git'),
@@ -96,7 +124,7 @@ const IGNORE_DIRS = new Set(['.git', 'node_modules'])
 const isIgnoreDir = dirent => IGNORE_DIRS.has(dirent.name)
 
 // path string => moduleNames [string]
-const walkPathForModuleNames = pathArg => pipe([
+const walkPathForModuleNames = pipe([
   fork({
     path: identity,
     dirents: tryCatch(
@@ -105,30 +133,53 @@ const walkPathForModuleNames = pathArg => pipe([
     ),
   }),
   switchCase([
-    isCratosModule, ({ path }) => [path],
-    ({ path, dirents }) => transform(pipe([
-      filter(and([
-        not(isIgnoreDir),
-        dirent => dirent.isDirectory(),
-      ])),
-      flatMap(pipe([
-        get('name'),
-        dirName => pathResolve(path, dirName),
-        walkPathForModuleNames,
-      ])),
-    ]), () => [])(dirents),
+    isRytModule, ({ path }) => [path],
+    ({ path, dirents }) => transform(
+      pipe([
+        filter(and([
+          not(isIgnoreDir),
+          dirent => dirent.isDirectory(),
+        ])),
+        flatMap(pipe([
+          get('name'),
+          dirName => pathResolve(path, dirName),
+          walkPathForModuleNames,
+        ])),
+      ]),
+      () => [],
+    )(dirents),
   ]),
-])(pathArg)
+])
 
-// path string => packageJSON object
-const getPackageJSON = pathArg => pipe([
+/*
+ * parsedArgv {
+ *   args: [string],
+ *   flags: [string],
+ * } => modulePaths [string]
+ */
+const findModulePaths = pipe([
+  findEntryPath,
+  split(':'),
+  flatMap(pipe([
+    pathResolve,
+    walkPathForModuleNames,
+  ])),
+])
+
+/*
+ * path string => packageJSON {
+ *   name: string,
+ *   version: string,
+ * }
+ */
+const getPackageJSON = pipe([
   path => pathResolve(path, 'package.json'),
   fs.promises.readFile,
   JSON.parse,
-])(pathArg)
+])
 
 // path string => gitStatus object
-const getGitStatus = pathArg => pipe([
+const getGitStatus = pipe([
   tryCatch(
     path => execa('git', [
       `--git-dir=${pathResolve(path, '.git')}`,
@@ -143,23 +194,25 @@ const getGitStatus = pathArg => pipe([
   ),
   get('stdout'),
   stdout => stdout.split('\n'),
-  fork({
+  fork({ // ['## master...origin/master', ' M index.js', '?? tmp.js']
     branch: get(0),
     files: slice(1),
   }),
   assign({
     fileNames: ({ files }) => map(lastWord)(files),
   }),
-])(pathArg)
+])
 
-/* path string => cratosModule {
+/* path string => rytModule {
+ *   path: string,
  *   packageName: string,
  *   packageVersion: string,
  *   gitCurrentBranch: [string],
  *   gitStatusFiles: [string],
+ *   gitStatusFileNames: [string],
  * }
  */
-const getModuleInfo = pathArg => pipe([
+const getModuleInfo = pipe([
   fork({
     path: identity,
     packageJSON: getPackageJSON,
@@ -167,179 +220,198 @@ const getModuleInfo = pathArg => pipe([
   }),
   fork({
     path: get('path'),
-    packageName: get('packageJSON.name'),
-    packageVersion: get('packageJSON.version'),
+    packageName: get('packageJSON.name', () => 'UNNAMED'),
+    packageVersion: get('packageJSON.version', () => '0.0.0'),
     gitCurrentBranch: pipe([
-      get('gitStatus.branch'),
+      get('gitStatus.branch'), // ## master...origin/master
       s => s.slice(3),
     ]),
     gitStatusFiles: get('gitStatus.files'),
     gitStatusFileNames: get('gitStatus.fileNames'),
   }),
-])(pathArg)
+])
 
-const logWithLevel = level => (...args) => console.log(level, ...args)
-
-const logger = {
-  warn: logWithLevel('[WARNING]'),
-}
-
-// parsedArgv { flags: [string] } => parsedFlags object
-const parseFlags = ({ flags }) => transform(map(pipe([
-  flag => flag.split('='),
-  fork([
-    pipe([get(0), s => s.replace(/-/g, '')]),
-    get(1, true),
-  ]),
-])), () => new Map())(flags)
-
-const parsedFlagsHas = key => ({ parsedFlags }) => parsedFlags.has(key)
-
-const parsedFlagsGet = key => ({ parsedFlags }) => parsedFlags.get(key)
-
-// parsedArgv {
-//   arguments: [string],
-//   flags: [string],
-// } => modulePaths [string]
-const findModulePaths = parsedArgv => pipe([
-  assign({ parsedFlags: parseFlags }),
-  switchCase([
-    parsedFlagsHas('path'), pipe([
-      parsedFlagsGet('path'),
-      pathResolve,
-    ]),
-    hasEnvVar('CRATOS_PATH'), getEnvVar('CRATOS_PATH'),
-    hasEnvVar('HOME'), pipe([
-      tap(() => {
-        logger.warn('CRATOS_PATH not set; finding modules from HOME')
-      }),
-      getEnvVar('HOME'),
-    ]),
-    () => {
-      throw new Error('no entrypoint found; CRATOS_PATH or HOME environment variables required')
-    },
-  ]),
-  split(':'),
-  flatMap(pipe([
-    pathResolve,
-    walkPathForModuleNames,
-  ])),
-])(parsedArgv)
-
-// parsedArgv => ()
-const commandList = parsedArgv => pipe([
-  findModulePaths,
-  map(pipe([
-    getModuleInfo,
-    fork([
-      get('packageName'),
-      get('packageVersion'),
-    ]),
-    fields => fields.join('-'),
-    trace,
-  ])),
-])(parsedArgv)
-
-// parsedArgv => ()
-const commandStatus = parsedArgv => pipe([
-  findModulePaths,
-  map(pipe([
-    getModuleInfo,
-    ({ packageName, gitStatusFiles }) => map(pipe([
-      file => [packageName, file].join(' '),
-      trace,
-    ]))(gitStatusFiles),
-  ])),
-])(parsedArgv)
-
-// parsedArgv => ()
-const commandBranch = parsedArgv => pipe([
-  findModulePaths,
-  map(pipe([
-    getModuleInfo,
-    fork([
-      get('packageName'),
-      get('gitCurrentBranch'),
-    ]),
-    fields => fields.join(' '),
-    trace,
-  ])),
-])(parsedArgv)
-
-// parsedArgv => ()
-const commandStatusBranch = parsedArgv => pipe([
-  findModulePaths,
-  map(pipe([
-    getModuleInfo,
-    fork([
-      get('packageName'),
-      get('gitCurrentBranch'),
-      pipe([
-        get('gitStatusFileNames'),
-        join(','),
-      ]),
-    ]),
-    join(' '),
-    trace,
-  ])),
-])(parsedArgv)
-
-// string => parsedArgv => boolean
+// flag string => parsedArgv { flags: [string] } => boolean
 const hasFlag = flag => ({ flags }) => flags.includes(flag)
 
-// parsedArgv => boolean
-const isBaseCommand = ({ arguments }) => arguments.length === 0
+// parsedArgv { args: [string] } => boolean
+const isBaseCommand = ({ args }) => args.length === 0
 
-// string => parsedArgv => boolean
-const isCommand = cmd => ({ arguments }) => arguments[0] === cmd
+// string => parsedArgv { args: [string] } => boolean
+const isCommand = cmd => ({ args }) => args[0] === cmd
 
-// parsedArgv => output string
-const switchCommand = switchCase([
-  or([
-    hasFlag('--version'),
-    hasFlag('-v'),
-  ]), pipe([() => cratosVersion, trace]),
-  or([
-    hasFlag('--help'),
-    hasFlag('-h'),
-    isBaseCommand,
-  ]), pipe([() => USAGE, trace]),
-  or([
-    isCommand('list'),
-    isCommand('ls'),
-  ]), commandList,
-  or([
-    isCommand('status'),
-    isCommand('s'),
-  ]), commandStatus,
-  or([
-    isCommand('branch'),
-    isCommand('b'),
-  ]), commandBranch,
-  or([
-    isCommand('status-branch'),
-    isCommand('sb'),
-  ]), commandStatusBranch,
-  pipe([
-    x => `${x.arguments[0]} is not a cratos command\n${USAGE}`,
-    trace,
+// replacement string => s string => replaced string
+const replaceHomeWith = replacement => s => s.replace(process.env.HOME, replacement)
+
+const command = {
+  /*
+   * () => command {
+   *   type: 'VERSION',
+   *   body: {
+   *     version: string,
+   *   },
+   * }
+   */
+  version: pipe([
+    () => ({
+      type: 'VERSION',
+      body: {
+        version: rytPackageJSON.version,
+      },
+    }),
+    tap(({ body: { version } }) => {
+      console.log('v' + version)
+    }),
   ]),
-])
 
-// argv [string] => ()
-const cli = pipe([
+  /*
+   * () => command {
+   *   type: 'USAGE',
+   *   body: {},
+   * }
+   */
+  usage: () => {
+    console.log(USAGE)
+    return {
+      type: 'USAGE',
+      body: {},
+    }
+  },
+
+  /*
+   * parsedArgv {
+   *   args: [string],
+   *   flags: [string],
+   * } => command {
+   *   type: 'LIST',
+   *   body: {
+   *     modules: [rytModule {
+   *       path: string,
+   *       packageName: string,
+   *       packageVersion: string,
+   *       gitCurrentBranch: [string],
+   *       gitStatusFiles: [string],
+   *       gitStatusFileNames: [string],
+   *     }]
+   *   },
+   * }
+   */
+  list: pipe([
+    findModulePaths,
+    fork({
+      type: () => 'LIST',
+      body: fork({
+        modules: map(pipe([
+          getModuleInfo,
+          tap(({ packageName, packageVersion }) => {
+            console.log(`${packageName}-${packageVersion}`)
+          }),
+        ])),
+      }),
+    }),
+  ]),
+
+  /*
+   * parsedArgv {
+   *   args: [string],
+   *   flags: [string],
+   * } => command {
+   *   type: 'STATUS',
+   *   body: {
+   *     modules: [rytModule {
+   *       path: string,
+   *       packageName: string,
+   *       packageVersion: string,
+   *       gitCurrentBranch: [string],
+   *       gitStatusFiles: [string],
+   *       gitStatusFileNames: [string],
+   *     }]
+   *   },
+   * }
+   */
+  status: pipe([
+    findModulePaths,
+    fork({
+      type: () => 'STATUS',
+      body: fork({
+        modules: map(pipe([
+          getModuleInfo,
+          tap(({ packageName, gitStatusFiles }) => {
+            for (const file of gitStatusFiles) {
+              console.log(packageName, file)
+            }
+          }),
+        ])),
+      }),
+    }),
+  ]),
+}
+
+/*
+ * argv [string] => {
+ *   args: [string],
+ *   flags: [string],
+ *   command: {
+ *     type: string,
+ *     body: {
+ *       version: string,
+ *       modules: [rytModule],
+ *     },
+ *   },
+ * }
+ *
+ * ['node', 'ryt', '--version'] => {
+ *   args: [],
+ *   flags: ['--version'],
+ *   command: {
+ *     type: 'VERSION',
+ *     body: {
+ *       version: string,
+ *     },
+ *   },
+ * }
+ *
+ * ['node', 'ryt', 'list'] => {
+ *   args: ['list'],
+ *   flags: [],
+ *   command: {
+ *     type: 'LIST',
+ *     body: {
+ *       modules: [rytModule],
+ *     },
+ *   },
+ * }
+ */
+const ryt = pipe([
   parseArgv,
-  switchCommand,
+  assign({
+    command: switchCase([
+      or([
+        hasFlag('--version'),
+        hasFlag('-v'),
+      ]), command.version,
+      or([
+        hasFlag('--help'),
+        hasFlag('-h'),
+        isBaseCommand,
+      ]), command.usage,
+      or([
+        isCommand('list'),
+        isCommand('ls'),
+      ]), command.list,
+      or([
+        isCommand('status'),
+        isCommand('s'),
+      ]), command.status,
+      x => {
+        console.log(`${x.args[0]} is not a ryt command\n${USAGE}`)
+        return {
+          type: 'INVALID_USAGE',
+          body: {},
+        }
+      },
+    ]),
+  }),
 ])
 
-const cratos = {}
-
-cratos.cli = cli
-cratos.parseArgv = parseArgv
-cratos.getPackageJSON = getPackageJSON
-cratos.getGitStatus = getGitStatus
-cratos.getModuleInfo = getModuleInfo
-cratos.findModulePaths = findModulePaths
-cratos.switchCommand = switchCommand
-
-module.exports = cratos
+module.exports = ryt
